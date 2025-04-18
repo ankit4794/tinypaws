@@ -26,53 +26,65 @@ interface ProductFilterOptions {
 
 export interface IStorage {
   // User-related methods
-  getUser(id: number): Promise<User | undefined>;
+  getUser(id: string | number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
+  createUser(user: any): Promise<User>;
+  updateUser(id: string | number, userData: Partial<any>): Promise<User | undefined>;
   
   // Product-related methods
   getProducts(options?: ProductFilterOptions): Promise<Product[]>;
-  getProductById(id: number): Promise<Product | undefined>;
+  getProductById(id: string | number): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
-  getSimilarProducts(productId: number, limit?: number): Promise<Product[]>;
+  getSimilarProducts(productId: string | number, limit?: number): Promise<Product[]>;
   searchProducts(query: string): Promise<Product[]>;
   
   // Category-related methods
   getCategories(): Promise<Category[]>;
   getCategoryBySlug(slug: string): Promise<Category | undefined>;
-  getSubcategories(categoryId: number): Promise<Category[]>;
+  getSubcategories(categoryId: string | number): Promise<Category[]>;
   
   // Cart-related methods
-  getCartItems(userId: number): Promise<CartItem[]>;
-  addToCart(userId: number, productId: number, quantity?: number, options?: { color?: string, size?: string }): Promise<CartItem>;
-  updateCartItemQuantity(userId: number, itemId: number, quantity: number): Promise<CartItem | undefined>;
-  removeFromCart(userId: number, itemId: number): Promise<void>;
-  clearCart(userId: number): Promise<void>;
+  getCartItems(userId: string | number): Promise<CartItem[]>;
+  addToCart(userId: string | number, productId: string | number, quantity?: number, options?: { color?: string, size?: string }): Promise<CartItem>;
+  updateCartItemQuantity(userId: string | number, itemId: string | number, quantity: number): Promise<CartItem | undefined>;
+  removeFromCart(userId: string | number, itemId: string | number): Promise<void>;
+  clearCart(userId: string | number): Promise<void>;
   
   // Wishlist-related methods
-  getWishlistItems(userId: number): Promise<WishlistItem[]>;
-  addToWishlist(userId: number, productId: number): Promise<WishlistItem>;
-  removeFromWishlist(userId: number, productId: number): Promise<void>;
+  getWishlistItems(userId: string | number): Promise<WishlistItem[]>;
+  addToWishlist(userId: string | number, productId: string | number): Promise<WishlistItem>;
+  removeFromWishlist(userId: string | number, productId: string | number): Promise<void>;
   
   // Order-related methods
-  createOrder(userId: number, items: any[], shippingAddress: any, paymentMethod: string): Promise<Order>;
-  getUserOrders(userId: number): Promise<Order[]>;
-  getOrderDetails(userId: number, orderId: number): Promise<(Order & { items: OrderItem[] }) | undefined>;
-  updateOrderStatus(orderId: number, status: string): Promise<Order | undefined>;
+  createOrder(userId: string | number, items: any[], shippingAddress: any, paymentMethod: string): Promise<Order>;
+  getUserOrders(userId: string | number): Promise<Order[]>;
+  getOrderDetails(userId: string | number, orderId: string | number): Promise<(Order & { items: OrderItem[] }) | undefined>;
+  updateOrderStatus(orderId: string | number, status: string): Promise<Order | undefined>;
   
   // Review-related methods
-  getProductReviews(productId: number): Promise<Review[]>;
-  addReview(userId: number, productId: number, rating: number, review: string): Promise<Review>;
+  getProductReviews(productId: string | number): Promise<Review[]>;
+  addReview(userId: string | number, productId: string | number, rating: number, review: string): Promise<Review>;
   
   // Contact-related methods
-  submitContactForm(submission: InsertContactSubmission): Promise<ContactSubmission>;
+  submitContactForm(submission: any): Promise<ContactSubmission>;
   
   // Newsletter-related methods
   subscribeToNewsletter(email: string): Promise<NewsletterSubscriber>;
   
   // Session store
   sessionStore: session.Store;
+  
+  // Admin-specific methods (optional)
+  getAllUsers?: () => Promise<User[]>;
+  getAllOrders?: () => Promise<Order[]>;
+  createProduct?: (productData: any) => Promise<Product>;
+  updateProduct?: (id: string | number, productData: any) => Promise<Product | undefined>;
+  deleteProduct?: (id: string | number) => Promise<void>;
+  createCategory?: (categoryData: any) => Promise<Category>;
+  updateCategory?: (id: string | number, categoryData: any) => Promise<Category | undefined>;
+  deleteCategory?: (id: string | number) => Promise<void>;
+  getContactSubmissions?: (resolved?: boolean) => Promise<ContactSubmission[]>;
+  updateContactSubmissionStatus?: (id: string | number, isResolved: boolean) => Promise<ContactSubmission | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -839,4 +851,10 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { MongoDBStorage } from './mongodb-storage';
+
+// Choose which storage implementation to use:
+// const storage = new MemStorage(); // In-memory storage for development
+const storage = new MongoDBStorage(); // MongoDB storage for production
+
+export { storage };
