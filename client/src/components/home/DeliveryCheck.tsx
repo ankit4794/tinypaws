@@ -1,88 +1,38 @@
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/use-auth";
 
-const DeliveryCheck = () => {
-  const { toast } = useToast();
-  const [pincode, setPincode] = useState("");
-  const [isDeliverable, setIsDeliverable] = useState<boolean | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
-
-  const handleCheckDelivery = async () => {
-    // Basic pincode validation for India (6 digits)
-    if (!pincode || !/^\d{6}$/.test(pincode)) {
-      toast({
-        title: "Invalid Pincode",
-        description: "Please enter a valid 6-digit pincode",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsChecking(true);
-    
-    try {
-      // This would be an API call in production
-      // Simulating API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Simple logic for demo: even last digit means deliverable
-      const lastDigit = parseInt(pincode.slice(-1));
-      setIsDeliverable(lastDigit % 2 === 0);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to check delivery availability. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsChecking(false);
-    }
-  };
+export default function DeliveryCheck() {
+  const { user } = useAuth();
 
   return (
-    <section className="py-10 px-4 bg-gray-50">
-      <div className="container mx-auto">
-        <div className="bg-white p-8 md:p-12 rounded-xl shadow-sm max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold mb-6 text-center">Check Delivery Availability</h2>
-          <p className="text-gray-600 mb-8 text-center">Enter your pincode to check if we deliver to your area</p>
-          
-          <div className="flex flex-col md:flex-row gap-4 max-w-lg mx-auto">
-            <Input
-              type="text"
-              placeholder="Enter Pincode"
-              className="flex-grow px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value)}
+    <div className="text-center p-8 max-w-2xl mx-auto">
+      <h2 className="text-2xl font-semibold mb-4">
+        Choose a delivery location to check product availability and find your nearest store.
+      </h2>
+
+      {user ? (
+        <div>
+          <p className="text-gray-600 mb-4">Your address:</p>
+          <p className="text-lg">{user.address?.street}, {user.address?.city}</p>
+        </div>
+      ) : (
+        <div>
+          <p className="text-xl text-[#F06543] mb-2">Log in to see your address</p>
+          <p className="text-xl mb-4">or</p>
+          <div className="flex gap-2 max-w-md mx-auto">
+            <Input 
+              placeholder="Enter pin code" 
+              className="text-lg h-12"
               maxLength={6}
             />
-            <Button
-              className="bg-black text-white px-6 py-3 rounded-md hover:bg-gray-800 transition"
-              onClick={handleCheckDelivery}
-              disabled={isChecking}
-            >
-              {isChecking ? "Checking..." : "Check"}
+            <Button className="bg-[#F06543] hover:bg-[#e55835] text-lg h-12 px-8">
+              Save
             </Button>
           </div>
-          
-          {/* Success Message */}
-          {isDeliverable === true && (
-            <div className="mt-6 bg-green-50 text-green-700 p-4 rounded-md text-center">
-              <i className="fas fa-check-circle mr-2"></i> We deliver to your area! Delivery usually takes 2-3 business days.
-            </div>
-          )}
-          
-          {/* Error Message */}
-          {isDeliverable === false && (
-            <div className="mt-6 bg-red-50 text-red-700 p-4 rounded-md text-center">
-              <i className="fas fa-exclamation-circle mr-2"></i> Sorry, we don't deliver to your area yet. We're expanding soon!
-            </div>
-          )}
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
-};
-
-export default DeliveryCheck;
+}

@@ -1,238 +1,120 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, doublePrecision, foreignKey } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import mongoose from 'mongoose';
+
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  description: String,
+  image: String,
+  isActive: { type: Boolean, default: true },
+  type: { type: String, enum: ['shop_for', 'accessories', 'brands', 'age'] },
+}, { timestamps: true });
+
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  description: String,
+  price: { type: Number, required: true },
+  originalPrice: Number,
+  images: [String],
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
+  brand: String,
+  ageGroup: String,
+  stock: { type: Number, default: 0 },
+  rating: { type: Number, default: 0 },
+  reviewCount: { type: Number, default: 0 },
+  isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+export const Category = mongoose.model('Category', categorySchema);
+export const Product = mongoose.model('Product', productSchema);
 
 // Users
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email"),
-  fullName: text("full_name"),
-  mobile: text("mobile"),
-  address: json("address").$type<{
-    street: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-  }>(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  email: true,
-  fullName: true,
-  mobile: true,
-});
-
-// Categories
-export const categories = pgTable("categories", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  description: text("description"),
-  parentId: integer("parent_id").references(() => categories.id),
-  image: text("image"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertCategorySchema = createInsertSchema(categories).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-// Products
-export const products = pgTable("products", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  description: text("description"),
-  longDescription: text("long_description"),
-  price: integer("price").notNull(), // stored in paise/cents
-  originalPrice: integer("original_price"), // stored in paise/cents
-  images: text("images").array().notNull(),
-  category: text("category").notNull(),
-  subcategory: text("subcategory"),
-  brand: text("brand"),
-  features: text("features").array(),
-  rating: doublePrecision("rating").default(0),
-  reviewCount: integer("review_count").default(0),
-  stock: integer("stock").default(0),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertProductSchema = createInsertSchema(products).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+//export const users = pgTable("users", { ... }); // Removed PostgreSQL schema
+//export const insertUserSchema = createInsertSchema(users).pick({ ... }); // Removed
 
 // Cart Items
-export const cartItems = pgTable("cart_items", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  productId: integer("product_id").notNull().references(() => products.id),
-  quantity: integer("quantity").notNull().default(1),
-  selectedColor: text("selected_color"),
-  selectedSize: text("selected_size"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertCartItemSchema = createInsertSchema(cartItems).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+//export const cartItems = pgTable("cart_items", { ... }); // Removed PostgreSQL schema
+//export const insertCartItemSchema = createInsertSchema(cartItems).omit({ ... }); // Removed
 
 // Wishlist Items
-export const wishlistItems = pgTable("wishlist_items", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  productId: integer("product_id").notNull().references(() => products.id),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertWishlistItemSchema = createInsertSchema(wishlistItems).omit({
-  id: true,
-  createdAt: true,
-});
+//export const wishlistItems = pgTable("wishlist_items", { ... }); // Removed PostgreSQL schema
+//export const insertWishlistItemSchema = createInsertSchema(wishlistItems).omit({ ... }); // Removed
 
 // Orders
-export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  status: text("status").notNull().default("pending"),
-  total: integer("total").notNull(),
-  shippingAddress: json("shipping_address").$type<{
-    fullName: string;
-    street: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    phone: string;
-  }>().notNull(),
-  paymentMethod: text("payment_method").notNull(),
-  paymentStatus: text("payment_status").notNull().default("pending"),
-  couponCode: text("coupon_code"),
-  discount: integer("discount").default(0),
-  deliveryCharge: integer("delivery_charge").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertOrderSchema = createInsertSchema(orders).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+//export const orders = pgTable("orders", { ... }); // Removed PostgreSQL schema
+//export const insertOrderSchema = createInsertSchema(orders).omit({ ... }); // Removed
 
 // Order Items
-export const orderItems = pgTable("order_items", {
-  id: serial("id").primaryKey(),
-  orderId: integer("order_id").notNull().references(() => orders.id),
-  productId: integer("product_id").notNull().references(() => products.id),
-  productName: text("product_name").notNull(),
-  productImage: text("product_image").notNull(),
-  quantity: integer("quantity").notNull(),
-  price: integer("price").notNull(),
-  selectedColor: text("selected_color"),
-  selectedSize: text("selected_size"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
-  id: true,
-  createdAt: true,
-});
+//export const orderItems = pgTable("order_items", { ... }); // Removed PostgreSQL schema
+//export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ ... }); // Removed
 
 // Reviews
-export const reviews = pgTable("reviews", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  productId: integer("product_id").notNull().references(() => products.id),
-  rating: integer("rating").notNull(),
-  review: text("review"),
-  isVerified: boolean("is_verified").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertReviewSchema = createInsertSchema(reviews).omit({
-  id: true,
-  isVerified: true,
-  createdAt: true,
-});
+//export const reviews = pgTable("reviews", { ... }); // Removed PostgreSQL schema
+//export const insertReviewSchema = createInsertSchema(reviews).omit({ ... }); // Removed
 
 // Contact Form Submissions
-export const contactSubmissions = pgTable("contact_submissions", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone").notNull(),
-  subject: text("subject").notNull(),
-  message: text("message").notNull(),
-  preferredContact: text("preferred_contact").notNull(),
-  isResolved: boolean("is_resolved").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertContactSubmissionSchema = createInsertSchema(contactSubmissions).omit({
-  id: true,
-  isResolved: true,
-  createdAt: true,
-});
+//export const contactSubmissions = pgTable("contact_submissions", { ... }); // Removed PostgreSQL schema
+//export const insertContactSubmissionSchema = createInsertSchema(contactSubmissions).omit({ ... }); // Removed
 
 // Newsletter Subscribers
-export const newsletterSubscribers = pgTable("newsletter_subscribers", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+//export const newsletterSubscribers = pgTable("newsletter_subscribers", { ... }); // Removed PostgreSQL schema
+//export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers).omit({ ... }); // Removed
 
-export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers).omit({
-  id: true,
-  isActive: true,
-  createdAt: true,
-});
 
-// Type Exports
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+// Type Exports - Adjusted for Mongoose
+export type InsertUser = any; // Placeholder, needs definition based on user schema if using Mongoose
+export type User = any; // Placeholder
 
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
-export type Category = typeof categories.$inferSelect;
+export type InsertCategory = any;
+export type Category = mongoose.Document & {
+    name: string;
+    slug: string;
+    parentId?: mongoose.Types.ObjectId;
+    description?: string;
+    image?: string;
+    isActive: boolean;
+    type?: string;
+    createdAt: Date;
+    updatedAt: Date;
+};
 
-export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Product = typeof products.$inferSelect;
+export type InsertProduct = any;
+export type Product = mongoose.Document & {
+    name: string;
+    slug: string;
+    description?: string;
+    price: number;
+    originalPrice?: number;
+    images: string[];
+    category: mongoose.Types.ObjectId;
+    brand?: string;
+    ageGroup?: string;
+    stock: number;
+    rating: number;
+    reviewCount: number;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+};
 
-export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
-export type CartItem = typeof cartItems.$inferSelect;
+export type InsertCartItem = any; // Placeholder
+export type CartItem = any; // Placeholder
 
-export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
-export type WishlistItem = typeof wishlistItems.$inferSelect;
+export type InsertWishlistItem = any; // Placeholder
+export type WishlistItem = any; // Placeholder
 
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
+export type InsertOrder = any; // Placeholder
+export type Order = any; // Placeholder
 
-export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
-export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertOrderItem = any; // Placeholder
+export type OrderItem = any; // Placeholder
 
-export type InsertReview = z.infer<typeof insertReviewSchema>;
-export type Review = typeof reviews.$inferSelect;
+export type InsertReview = any; // Placeholder
+export type Review = any; // Placeholder
 
-export type InsertContactSubmission = z.infer<typeof insertContactSubmissionSchema>;
-export type ContactSubmission = typeof contactSubmissions.$inferSelect;
+export type InsertContactSubmission = any; // Placeholder
+export type ContactSubmission = any; // Placeholder
 
-export type InsertNewsletterSubscriber = z.infer<typeof insertNewsletterSubscriberSchema>;
-export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
+export type InsertNewsletterSubscriber = any; // Placeholder
+export type NewsletterSubscriber = any; // Placeholder
