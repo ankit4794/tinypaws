@@ -1,194 +1,430 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/use-auth';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { 
+  ArrowRight, 
+  ShoppingCart, 
+  Heart, 
+  Star, 
+  TruckIcon,
+  ShieldCheck,
+  RotateCcw
+} from 'lucide-react';
 
-// Import components as needed for the homepage
-export default function Home() {
-  const { user, isLoading: authLoading } = useAuth();
+export default function HomePage() {
+  const [featuredTab, setFeaturedTab] = useState('new-arrivals');
   
   // Fetch featured products
-  const { data: featuredProducts, isLoading: productsLoading } = useQuery({
-    queryKey: ['/api/products'],
+  const { data: featuredProducts, isLoading } = useQuery({
+    queryKey: ['/api/products/featured', featuredTab],
     queryFn: async () => {
-      const res = await fetch('/api/products?limit=4');
-      if (!res.ok) {
-        throw new Error('Failed to fetch products');
-      }
+      const res = await fetch(`/api/products/featured?type=${featuredTab}`);
+      if (!res.ok) throw new Error('Failed to fetch featured products');
       return res.json();
-    }
+    },
+  });
+  
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ['/api/categories'],
+    queryFn: async () => {
+      const res = await fetch('/api/categories');
+      if (!res.ok) throw new Error('Failed to fetch categories');
+      return res.json();
+    },
   });
 
   return (
     <>
       <Head>
-        <title>TinyPaws - Premium Pet Supplies</title>
-        <meta name="description" content="TinyPaws - Your one-stop shop for premium pet products" />
-        <link rel="icon" href="/favicon.ico" />
+        <title>TinyPaws - Premium Pet Products for Your Beloved Companions</title>
+        <meta 
+          name="description" 
+          content="TinyPaws offers premium quality pet products for dogs, cats, and small animals. Shop food, toys, grooming supplies, and more for your beloved pet companions." 
+        />
       </Head>
-
+      
       <div className="flex flex-col min-h-screen">
         <Header />
         
         <main className="flex-grow">
           {/* Hero Section */}
-          <section className="bg-white py-12 md:py-20">
-            <div className="container px-4 mx-auto">
-              <div className="flex flex-col md:flex-row items-center">
-                <div className="md:w-1/2 mb-10 md:mb-0">
-                  <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
-                    Premium Products for Your Furry Friends
+          <section className="relative bg-gray-100">
+            <div className="container mx-auto px-4 py-16 md:py-24">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-bold mb-4">
+                    Premium Pet Products for Your Beloved Companions
                   </h1>
-                  <p className="text-lg mb-6">
-                    Discover high-quality food, accessories, and toys for your pets.
+                  <p className="text-lg text-gray-600 mb-8">
+                    Discover a world of quality products for your furry, feathery, or scaly friends.
+                    From nutrition to fun, we've got everything your pet needs.
                   </p>
                   <div className="flex flex-wrap gap-4">
-                    <a href="/products" className="inline-block bg-black text-white py-3 px-6 rounded-md font-medium">
-                      Shop Now
-                    </a>
-                    <a href="/categories" className="inline-block bg-gray-100 text-black py-3 px-6 rounded-md font-medium">
-                      Browse Categories
-                    </a>
+                    <Button size="lg" asChild>
+                      <Link href="/products">
+                        Shop Now <ArrowRight className="ml-2 h-5 w-5" />
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="lg" asChild>
+                      <Link href="/products?category=deals">
+                        View Deals
+                      </Link>
+                    </Button>
                   </div>
                 </div>
-                <div className="md:w-1/2">
+                <div>
                   <img 
-                    src="https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1969&q=80" 
-                    alt="Happy dog" 
-                    className="rounded-lg shadow-xl w-full h-auto"
+                    src="/hero-image.jpg" 
+                    alt="Happy pets with TinyPaws products" 
+                    className="rounded-lg shadow-lg"
                   />
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Featured Products Section */}
-          <section className="py-12 bg-gray-50">
-            <div className="container px-4 mx-auto">
-              <h2 className="text-3xl font-bold mb-10 text-center">Featured Products</h2>
-              
-              {productsLoading ? (
-                <div className="text-center">Loading products...</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {featuredProducts?.map((product: any) => (
-                    <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                      <img 
-                        src={product.images[0]} 
-                        alt={product.name} 
-                        className="w-full h-64 object-cover"
-                      />
-                      <div className="p-4">
-                        <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
-                        <p className="text-gray-600 mb-2 line-clamp-2">{product.description}</p>
-                        <div className="flex justify-between items-center mt-4">
-                          <div>
-                            <span className="font-bold">₹{(product.price / 100).toFixed(2)}</span>
-                            {product.originalPrice && (
-                              <span className="text-gray-400 line-through ml-2">
-                                ₹{(product.originalPrice / 100).toFixed(2)}
-                              </span>
-                            )}
-                          </div>
-                          <a href={`/products/${product.slug}`} className="text-black font-medium">
-                            View
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Categories Section */}
-          <section className="py-12">
-            <div className="container px-4 mx-auto">
-              <h2 className="text-3xl font-bold mb-10 text-center">Shop by Category</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <a href="/products?category=dogs" className="group relative rounded-lg overflow-hidden shadow-lg h-64">
-                  <img 
-                    src="https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1969&q=80"
-                    alt="Dogs" 
-                    className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                    <h3 className="text-white text-2xl font-bold">Dogs</h3>
-                  </div>
-                </a>
-                <a href="/products?category=cats" className="group relative rounded-lg overflow-hidden shadow-lg h-64">
-                  <img 
-                    src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2043&q=80"
-                    alt="Cats" 
-                    className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                    <h3 className="text-white text-2xl font-bold">Cats</h3>
-                  </div>
-                </a>
-                <a href="/products?category=small-animals" className="group relative rounded-lg overflow-hidden shadow-lg h-64">
-                  <img 
-                    src="https://images.unsplash.com/photo-1591561582301-7ce6587cc286?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80"
-                    alt="Small Animals" 
-                    className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                    <h3 className="text-white text-2xl font-bold">Small Animals</h3>
-                  </div>
-                </a>
               </div>
             </div>
           </section>
           
-          {/* Features Section */}
-          <section className="py-12 bg-gray-50">
-            <div className="container px-4 mx-auto">
-              <h2 className="text-3xl font-bold mb-10 text-center">Why Choose TinyPaws?</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-black rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Premium Quality</h3>
-                  <p className="text-gray-600">We source only the highest quality products for your pets.</p>
+          {/* Categories Section */}
+          <section className="py-16">
+            <div className="container mx-auto px-4">
+              <h2 className="text-3xl font-bold text-center mb-12">Shop by Pet</h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* Dog Category */}
+                <div className="group relative overflow-hidden rounded-lg bg-white shadow-md transition-all hover:shadow-lg">
+                  <Link href="/products?category=dogs" className="block">
+                    <div className="aspect-square overflow-hidden">
+                      <img
+                        src="/dog-category.jpg"
+                        alt="Dog Products"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent">
+                      <div className="absolute bottom-0 left-0 p-6">
+                        <h3 className="text-2xl font-bold text-white mb-2">Dogs</h3>
+                        <p className="text-white/90 mb-4">
+                          Food, toys, accessories, and more for your loyal companions
+                        </p>
+                        <span className="inline-flex items-center text-white text-sm font-medium">
+                          Shop Now <ArrowRight className="ml-1 h-4 w-4" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-black rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Fast Delivery</h3>
-                  <p className="text-gray-600">Quick delivery to your doorstep across India.</p>
+                
+                {/* Cat Category */}
+                <div className="group relative overflow-hidden rounded-lg bg-white shadow-md transition-all hover:shadow-lg">
+                  <Link href="/products?category=cats" className="block">
+                    <div className="aspect-square overflow-hidden">
+                      <img
+                        src="/cat-category.jpg"
+                        alt="Cat Products"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent">
+                      <div className="absolute bottom-0 left-0 p-6">
+                        <h3 className="text-2xl font-bold text-white mb-2">Cats</h3>
+                        <p className="text-white/90 mb-4">
+                          Everything your feline friends need for a happy life
+                        </p>
+                        <span className="inline-flex items-center text-white text-sm font-medium">
+                          Shop Now <ArrowRight className="ml-1 h-4 w-4" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-black rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Secure Payments</h3>
-                  <p className="text-gray-600">Multiple secure payment options available.</p>
-                </div>
-                <div className="text-center p-6">
-                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-black rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">24/7 Support</h3>
-                  <p className="text-gray-600">Our customer service team is always ready to help.</p>
+                
+                {/* Small Animals Category */}
+                <div className="group relative overflow-hidden rounded-lg bg-white shadow-md transition-all hover:shadow-lg">
+                  <Link href="/products?category=small-animals" className="block">
+                    <div className="aspect-square overflow-hidden">
+                      <img
+                        src="/small-animals-category.jpg"
+                        alt="Small Animals Products"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent">
+                      <div className="absolute bottom-0 left-0 p-6">
+                        <h3 className="text-2xl font-bold text-white mb-2">Small Animals</h3>
+                        <p className="text-white/90 mb-4">
+                          Supplies for rabbits, hamsters, guinea pigs and more
+                        </p>
+                        <span className="inline-flex items-center text-white text-sm font-medium">
+                          Shop Now <ArrowRight className="ml-1 h-4 w-4" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
               </div>
             </div>
           </section>
+          
+          {/* Featured Products */}
+          <section className="bg-gray-50 py-16">
+            <div className="container mx-auto px-4">
+              <h2 className="text-3xl font-bold text-center mb-4">Featured Products</h2>
+              <p className="text-gray-600 text-center mb-8 max-w-2xl mx-auto">
+                Discover our selection of premium pet products, specially curated for quality and value
+              </p>
+              
+              <Tabs value={featuredTab} onValueChange={setFeaturedTab} className="mb-12">
+                <TabsList className="mx-auto">
+                  <TabsTrigger value="new-arrivals">New Arrivals</TabsTrigger>
+                  <TabsTrigger value="best-sellers">Best Sellers</TabsTrigger>
+                  <TabsTrigger value="deals">Special Deals</TabsTrigger>
+                </TabsList>
+                
+                {['new-arrivals', 'best-sellers', 'deals'].map((tab) => (
+                  <TabsContent key={tab} value={tab} className="mt-8">
+                    {isLoading ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="bg-white rounded-lg p-4 shadow-sm animate-pulse">
+                            <div className="h-48 bg-gray-200 rounded-md mb-4"></div>
+                            <div className="h-4 bg-gray-200 rounded mb-2 w-3/4"></div>
+                            <div className="h-4 bg-gray-200 rounded mb-4 w-1/2"></div>
+                            <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : featuredProducts && featuredProducts.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {featuredProducts.map((product: any) => (
+                          <div key={product.id} className="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all">
+                            <Link href={`/products/${product.slug}`} className="block relative">
+                              <img 
+                                src={product.images[0]} 
+                                alt={product.name}
+                                className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              {product.originalPrice && (
+                                <span className="absolute top-2 right-2 bg-black text-white text-xs px-2 py-1 rounded">
+                                  {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
+                                </span>
+                              )}
+                            </Link>
+                            <div className="p-4">
+                              <Link href={`/products/${product.slug}`} className="block">
+                                <h3 className="font-medium mb-1 group-hover:text-black transition-colors">
+                                  {product.name}
+                                </h3>
+                                <div className="flex items-center mb-2">
+                                  <div className="flex">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`h-4 w-4 ${
+                                          i < Math.floor(product.rating || 0)
+                                            ? 'fill-yellow-400 text-yellow-400'
+                                            : 'text-gray-300'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({product.reviewCount || 0})
+                                  </span>
+                                </div>
+                                <div className="flex items-baseline gap-2 mb-3">
+                                  <span className="font-bold">₹{(product.price / 100).toFixed(2)}</span>
+                                  {product.originalPrice && (
+                                    <span className="text-gray-500 text-sm line-through">
+                                      ₹{(product.originalPrice / 100).toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="flex-1 flex items-center justify-center gap-1"
+                                >
+                                  <ShoppingCart className="h-4 w-4" />
+                                  Add
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="flex items-center justify-center"
+                                >
+                                  <Heart className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No products found.</p>
+                      </div>
+                    )}
+                    
+                    <div className="text-center mt-8">
+                      <Button variant="outline" asChild>
+                        <Link href={`/products?type=${tab}`}>
+                          View All {tab.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        </Link>
+                      </Button>
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </div>
+          </section>
+          
+          {/* Benefits Section */}
+          <section className="py-16">
+            <div className="container mx-auto px-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+                  <div className="mx-auto w-16 h-16 flex items-center justify-center bg-gray-100 rounded-full mb-4">
+                    <TruckIcon className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Free Shipping</h3>
+                  <p className="text-gray-600">
+                    On all orders above ₹999
+                  </p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+                  <div className="mx-auto w-16 h-16 flex items-center justify-center bg-gray-100 rounded-full mb-4">
+                    <ShieldCheck className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Quality Guarantee</h3>
+                  <p className="text-gray-600">
+                    Premium products for your pets
+                  </p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+                  <div className="mx-auto w-16 h-16 flex items-center justify-center bg-gray-100 rounded-full mb-4">
+                    <RotateCcw className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Easy Returns</h3>
+                  <p className="text-gray-600">
+                    30-day return policy
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          {/* Testimonials Section */}
+          <section className="bg-gray-100 py-16">
+            <div className="container mx-auto px-4">
+              <h2 className="text-3xl font-bold text-center mb-12">What Our Customers Say</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="bg-white p-6 rounded-lg shadow-sm">
+                  <div className="flex mb-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    "I've been shopping with TinyPaws for over a year now, and I'm always impressed with the quality of their products. My dog loves the treats, and the delivery is always prompt."
+                  </p>
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-200 mr-4">
+                      <img 
+                        src="/testimonial-1.jpg" 
+                        alt="Customer" 
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Priya Sharma</h4>
+                      <p className="text-sm text-gray-500">Dog Parent</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg shadow-sm">
+                  <div className="flex mb-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    "The variety of cat toys available at TinyPaws is amazing! My feline friend is quite picky, but she loves everything I've bought from here. Great customer service too!"
+                  </p>
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-200 mr-4">
+                      <img 
+                        src="/testimonial-2.jpg" 
+                        alt="Customer" 
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Rohit Mehta</h4>
+                      <p className="text-sm text-gray-500">Cat Parent</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg shadow-sm">
+                  <div className="flex mb-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`h-5 w-5 ${i < 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                    ))}
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    "I appreciate that TinyPaws offers special products for small animals. Finding quality supplies for my guinea pigs used to be challenging, but not anymore!"
+                  </p>
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-200 mr-4">
+                      <img 
+                        src="/testimonial-3.jpg" 
+                        alt="Customer" 
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Anjali Patel</h4>
+                      <p className="text-sm text-gray-500">Guinea Pig Parent</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          {/* Newsletter Section */}
+          <section className="bg-black text-white py-16">
+            <div className="container mx-auto px-4">
+              <div className="max-w-2xl mx-auto text-center">
+                <h2 className="text-3xl font-bold mb-4">Join the TinyPaws Family</h2>
+                <p className="mb-8">
+                  Subscribe to our newsletter for pet care tips, exclusive offers, and new product updates.
+                </p>
+                
+                <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+                  <input 
+                    type="email"
+                    placeholder="Your email address"
+                    className="px-4 py-3 rounded-md flex-grow bg-white/10 text-white placeholder:text-white/60 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  />
+                  <Button>Subscribe</Button>
+                </form>
+              </div>
+            </div>
+          </section>
         </main>
-
+        
         <Footer />
       </div>
     </>
