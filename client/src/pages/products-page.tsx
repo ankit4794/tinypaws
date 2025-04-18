@@ -21,7 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { Input, Badge } from "@/components/ui"; // Assuming these components exist
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge"; // Assuming these components exist
 
 
 const ProductsPage = () => {
