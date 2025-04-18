@@ -1,97 +1,89 @@
 import Link from 'next/link';
-import { Facebook, Twitter, Instagram, Youtube, Mail } from 'lucide-react';
+import { 
+  Facebook, 
+  Twitter, 
+  Instagram, 
+  Youtube,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  Lock,
+  TruckDelivery
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
 
 export default function Footer() {
-  const [email, setEmail] = useState('');
-  const { toast } = useToast();
-
-  const handleNewsletterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast({
-        title: "Invalid email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-      
-      if (response.ok) {
-        setEmail('');
-        toast({
-          title: "Subscription successful",
-          description: "Thank you for subscribing to our newsletter!",
-        });
-      } else {
-        const data = await response.json();
-        throw new Error(data.message || 'Something went wrong');
-      }
-    } catch (error) {
-      toast({
-        title: "Subscription failed",
-        description: error instanceof Error ? error.message : 'Failed to subscribe to newsletter',
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
-    <footer className="bg-white border-t border-gray-200">
-      <div className="container px-4 mx-auto py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Company Information */}
+    <footer className="bg-white text-black">
+      {/* Newsletter Section */}
+      <div className="border-t border-b">
+        <div className="container mx-auto px-4 py-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div>
+              <h3 className="text-xl font-bold mb-1">Subscribe to our newsletter</h3>
+              <p className="text-gray-600">
+                Get the latest updates on new products and upcoming sales
+              </p>
+            </div>
+            <div>
+              <form className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="Your email address"
+                  className="flex-grow"
+                />
+                <Button type="submit">Subscribe</Button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Footer */}
+      <div className="container mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Column 1: About */}
           <div>
-            <h2 className="text-xl font-bold mb-4">TinyPaws</h2>
+            <h3 className="font-bold text-lg mb-4">TinyPaws</h3>
             <p className="text-gray-600 mb-4">
-              Premium pet products for your furry friends
+              Your one-stop shop for all pet needs. We provide high-quality products
+              for your furry, feathery, or scaly friends.
             </p>
-            <div className="flex space-x-4">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                <Facebook className="h-5 w-5 text-gray-600 hover:text-black" />
-              </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-                <Twitter className="h-5 w-5 text-gray-600 hover:text-black" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                <Instagram className="h-5 w-5 text-gray-600 hover:text-black" />
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-                <Youtube className="h-5 w-5 text-gray-600 hover:text-black" />
-              </a>
+            <div className="flex gap-4">
+              <Link href="https://facebook.com" className="text-gray-600 hover:text-black">
+                <Facebook size={20} />
+              </Link>
+              <Link href="https://twitter.com" className="text-gray-600 hover:text-black">
+                <Twitter size={20} />
+              </Link>
+              <Link href="https://instagram.com" className="text-gray-600 hover:text-black">
+                <Instagram size={20} />
+              </Link>
+              <Link href="https://youtube.com" className="text-gray-600 hover:text-black">
+                <Youtube size={20} />
+              </Link>
             </div>
           </div>
           
-          {/* Quick Links */}
+          {/* Column 2: Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+            <h3 className="font-bold text-lg mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/products" className="text-gray-600 hover:text-black">
-                  All Products
+                  Shop All
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=dogs" className="text-gray-600 hover:text-black">
-                  Dog Products
+                  Dogs
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=cats" className="text-gray-600 hover:text-black">
-                  Cat Products
+                  Cats
                 </Link>
               </li>
               <li>
@@ -100,93 +92,124 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/blog" className="text-gray-600 hover:text-black">
-                  Pet Care Blog
+                <Link href="/offers" className="text-gray-600 hover:text-black">
+                  Offers & Deals
                 </Link>
               </li>
             </ul>
           </div>
           
-          {/* Customer Service */}
+          {/* Column 3: Customer Service */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Customer Service</h3>
+            <h3 className="font-bold text-lg mb-4">Customer Service</h3>
             <ul className="space-y-2">
+              <li>
+                <Link href="/help" className="text-gray-600 hover:text-black">
+                  Help Center
+                </Link>
+              </li>
+              <li>
+                <Link href="/track-order" className="text-gray-600 hover:text-black">
+                  Track Your Order
+                </Link>
+              </li>
+              <li>
+                <Link href="/shipping" className="text-gray-600 hover:text-black">
+                  Shipping Information
+                </Link>
+              </li>
+              <li>
+                <Link href="/returns" className="text-gray-600 hover:text-black">
+                  Returns & Refunds
+                </Link>
+              </li>
               <li>
                 <Link href="/contact" className="text-gray-600 hover:text-black">
                   Contact Us
                 </Link>
               </li>
-              <li>
-                <Link href="/shipping-policy" className="text-gray-600 hover:text-black">
-                  Shipping Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/return-policy" className="text-gray-600 hover:text-black">
-                  Return Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-gray-600 hover:text-black">
-                  FAQ
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy-policy" className="text-gray-600 hover:text-black">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-gray-600 hover:text-black">
-                  Terms & Conditions
-                </Link>
-              </li>
             </ul>
           </div>
           
-          {/* Newsletter Subscription */}
+          {/* Column 4: Contact */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Subscribe to Our Newsletter</h3>
-            <p className="text-gray-600 mb-4">
-              Stay updated with our latest products and offers
-            </p>
-            <form onSubmit={handleNewsletterSubmit} className="flex flex-col space-y-2">
-              <div className="flex">
-                <Input
-                  type="email"
-                  placeholder="Your email address"
-                  className="rounded-r-none"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                <Button type="submit" className="rounded-l-none">
-                  Subscribe
-                </Button>
-              </div>
-            </form>
-            <p className="text-sm text-gray-500 mt-2">
-              We respect your privacy. Unsubscribe at any time.
-            </p>
+            <h3 className="font-bold text-lg mb-4">Contact Us</h3>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-gray-600 mt-0.5" />
+                <span className="text-gray-600">
+                  123 Pet Street, New Delhi, 110001, India
+                </span>
+              </li>
+              <li className="flex items-center gap-3">
+                <Phone className="h-5 w-5 text-gray-600" />
+                <span className="text-gray-600">+91 1234567890</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <Mail className="h-5 w-5 text-gray-600" />
+                <span className="text-gray-600">info@tinypaws.com</span>
+              </li>
+            </ul>
           </div>
         </div>
-        
-        <div className="border-t border-gray-200 mt-12 pt-8">
-          <div className="flex flex-col md:flex-row justify-between">
-            <p className="text-gray-600 text-sm mb-4 md:mb-0">
-              © {new Date().getFullYear()} TinyPaws. All rights reserved.
-            </p>
-            <div className="flex space-x-4">
-              <Link href="/privacy-policy" className="text-gray-600 hover:text-black text-sm">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="text-gray-600 hover:text-black text-sm">
-                Terms of Service
-              </Link>
-              <Link href="/sitemap" className="text-gray-600 hover:text-black text-sm">
-                Sitemap
-              </Link>
+      </div>
+      
+      {/* Payment Methods & Trust Badges */}
+      <div className="border-t">
+        <div className="container mx-auto px-4 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <img src="/visa.svg" alt="Visa" className="h-8" />
+              <img src="/mastercard.svg" alt="Mastercard" className="h-8" />
+              <img src="/paypal.svg" alt="PayPal" className="h-8" />
+              <img src="/americanexpress.svg" alt="American Express" className="h-8" />
             </div>
+            
+            <div className="flex flex-wrap justify-center gap-6">
+              <div className="flex items-center gap-2">
+                <TruckDelivery className="h-5 w-5 text-gray-600" />
+                <span className="text-sm text-gray-600">Free Shipping</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-gray-600" />
+                <span className="text-sm text-gray-600">Secure Payment</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-gray-600" />
+                <span className="text-sm text-gray-600">COD Available</span>
+              </div>
+            </div>
+            
+            <div className="text-center md:text-right text-gray-600 text-sm">
+              © {new Date().getFullYear()} TinyPaws. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Bottom Links */}
+      <div className="bg-gray-100">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-600">
+            <Link href="/privacy" className="hover:text-black">
+              Privacy Policy
+            </Link>
+            <span>|</span>
+            <Link href="/terms" className="hover:text-black">
+              Terms & Conditions
+            </Link>
+            <span>|</span>
+            <Link href="/shipping-policy" className="hover:text-black">
+              Shipping Policy
+            </Link>
+            <span>|</span>
+            <Link href="/refund-policy" className="hover:text-black">
+              Refund Policy
+            </Link>
+            <span>|</span>
+            <Link href="/sitemap" className="hover:text-black">
+              Sitemap
+            </Link>
           </div>
         </div>
       </div>
