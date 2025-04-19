@@ -1,6 +1,7 @@
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Loader2 } from "lucide-react";
-import { Redirect, Route } from "wouter";
+import { Redirect, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 
 export function AdminProtectedRoute({
   path,
@@ -10,6 +11,15 @@ export function AdminProtectedRoute({
   component: () => React.JSX.Element;
 }) {
   const { adminUser, isLoading } = useAdminAuth();
+  const [location, navigate] = useLocation();
+
+  // Effect to check authentication and redirect if needed
+  useEffect(() => {
+    // If not loading and no admin user, redirect to login
+    if (!isLoading && !adminUser && location.startsWith('/admin') && location !== '/admin/login') {
+      navigate('/admin/login');
+    }
+  }, [adminUser, isLoading, location, navigate]);
 
   if (isLoading) {
     return (

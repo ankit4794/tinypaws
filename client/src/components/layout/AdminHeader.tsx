@@ -1,8 +1,8 @@
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ChevronDown, LogOut, Menu, User, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,10 +15,22 @@ import {
 export default function AdminHeader() {
   const { adminUser, adminLogoutMutation } = useAdminAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [location, navigate] = useLocation();
 
+  // Handle logout with redirect to login page after success
   const handleLogout = () => {
-    adminLogoutMutation.mutate();
+    adminLogoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        // Redirect to login page
+        navigate("/admin/login");
+      }
+    });
   };
+  
+  // Close mobile menu when location changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location]);
 
   return (
     <header className="bg-slate-900 text-white">
