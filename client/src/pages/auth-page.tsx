@@ -22,13 +22,16 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, ChevronRight } from "lucide-react";
 
 const loginSchema = z.object({
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
+  email: z.string().email({ message: "Please enter a valid email address" }).optional(),
+  mobile: z.string().regex(/^\d{10}$/, { message: "Please enter a valid 10-digit mobile number" }).optional(),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+}).refine(data => data.email || data.mobile, {
+  message: "Email or mobile number is required",
+  path: ["email"]
 });
 
 const registerSchema = z.object({
   fullName: z.string().min(3, { message: "Full name is required" }),
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
   mobile: z.string().regex(/^\d{10}$/, { message: "Please enter a valid 10-digit mobile number" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
@@ -73,7 +76,8 @@ const AuthPage = () => {
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      email: "",
+      mobile: "",
       password: "",
     },
   });
@@ -82,7 +86,6 @@ const AuthPage = () => {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: "",
-      username: "",
       email: "",
       mobile: "",
       password: "",
@@ -95,8 +98,8 @@ const AuthPage = () => {
 
   const onRegisterSubmit = (values: RegisterValues) => {
     // Extract just the fields needed for registration
-    const { username, email, password, fullName, mobile } = values;
-    registerMutation.mutate({ username, email, password, fullName, mobile });
+    const { email, password, fullName, mobile } = values;
+    registerMutation.mutate({ email, password, fullName, mobile });
   };
 
   // Setup OTP form handlers
@@ -253,12 +256,26 @@ const AuthPage = () => {
                   <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                     <FormField
                       control={loginForm.control}
-                      name="username"
+                      name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Username</FormLabel>
+                          <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter your username" {...field} />
+                            <Input type="email" placeholder="Enter your email" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={loginForm.control}
+                      name="mobile"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mobile (Optional)</FormLabel>
+                          <FormControl>
+                            <Input type="tel" placeholder="Enter your mobile number" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -341,19 +358,7 @@ const AuthPage = () => {
                       )}
                     />
                     
-                    <FormField
-                      control={registerForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Choose a username" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+
                     
                     <FormField
                       control={registerForm.control}
