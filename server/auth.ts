@@ -45,7 +45,21 @@ const JWT_SECRET = process.env.JWT_SECRET || 'tinypaws-jwt-secret-key-123';
 
 declare global {
   namespace Express {
-    interface User extends User {}
+    // Define User interface with MongoDB document structure (_id instead of id)
+    interface User {
+      _id: string;
+      username: string;
+      email: string;
+      password: string;
+      fullName?: string | null;
+      mobile?: string | null;
+      address?: any | null;
+      role: UserRole;
+      googleId?: string;
+      facebookId?: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }
   }
 }
 
@@ -194,7 +208,7 @@ export function setupAuth(app: Express) {
           } 
           // If user exists but doesn't have googleId, update it
           else if (!user.googleId) {
-            user = await storageProvider.instance.updateUser(user.id, {
+            user = await storageProvider.instance.updateUser(user._id, {
               googleId: profile.id,
               updatedAt: new Date()
             });
@@ -245,7 +259,7 @@ export function setupAuth(app: Express) {
           } 
           // If user exists but doesn't have facebookId, update it
           else if (!user.facebookId) {
-            user = await storageProvider.instance.updateUser(user.id, {
+            user = await storageProvider.instance.updateUser(user._id, {
               facebookId: profile.id,
               updatedAt: new Date()
             });
@@ -260,7 +274,7 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => {
-    done(null, user.id);
+    done(null, user._id);
   });
 
   passport.deserializeUser(async (id: string, done) => {
@@ -429,7 +443,7 @@ export function setupAuth(app: Express) {
     }
 
     try {
-      const userId = req.user.id;
+      const userId = req.user._id;
       const { fullName, email, mobile, address } = req.body;
       
       // Update user data
@@ -461,7 +475,7 @@ export function setupAuth(app: Express) {
     }
 
     try {
-      const userId = req.user.id;
+      const userId = req.user._id;
       const { currentPassword, newPassword } = req.body;
       
       // Validate input
