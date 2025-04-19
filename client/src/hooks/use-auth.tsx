@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -30,9 +30,26 @@ type RegisterData = {
   mobile?: string;
 };
 
+const LOCAL_STORAGE_AUTH_KEY = "tinypaws_auth_user";
+
+// Try to get persisted user from localStorage
+const getPersistedUser = (): User | null => {
+  if (typeof window === "undefined") return null;
+  
+  try {
+    const storedUser = localStorage.getItem(LOCAL_STORAGE_AUTH_KEY);
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error("Failed to parse stored user data:", error);
+    return null;
+  }
+};
+
 export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  
+  // Initialize the query with data from localStorage if available
   const {
     data: user,
     error,
@@ -40,7 +57,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    // Prevent automatic fetching on mount if we already have data in localStorage
+    enabled: !getPersistedUser(),
+    // Initialize with localStorage data
+    initialData: getPersistedUser,
   });
+
+  // Persist user data to localStorage when it changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(user));
+    } else if (user === null && !isLoading) {
+      localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+    }
+  }, [user, isLoading]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
@@ -49,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
+      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(user));
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
@@ -70,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
+      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(user));
       toast({
         title: "Account created",
         description: "Your account has been successfully created.",
@@ -90,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
