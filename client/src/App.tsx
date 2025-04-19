@@ -17,8 +17,9 @@ import AdminHeader from "@/components/layout/AdminHeader";
 import AdminFooter from "@/components/layout/AdminFooter";
 import { ProtectedRoute } from "@/lib/protected-route";
 
-// Import admin login page
+// Import admin pages
 import AdminLoginPage from "./pages/admin/login-page";
+import AdminDashboard from "./pages/admin/index";
 import HelpDeskPage from "./pages/admin/help-desk";
 import PincodesPage from "./pages/admin/pincodes";
 import ReviewsPage from "./pages/admin/reviews";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/terms" component={TermsPage} />
       
       {/* Admin routes */}
+      <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/help-desk" component={HelpDeskPage} />
       <Route path="/admin/pincodes" component={PincodesPage} />
