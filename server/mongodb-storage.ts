@@ -1,19 +1,202 @@
 import { IStorage } from './storage';
-import prisma from './prisma';
-import type { 
-  User, 
-  Product, 
+import mongoose from 'mongoose';
+import session from 'express-session';
+import connectMongo from 'connect-mongo';
+import { 
+  UserRole,
+  OrderStatus
+} from '@shared/schema';
+import {
+  User,
   Category,
+  Product,
   CartItem,
   WishlistItem,
   Order,
   OrderItem,
   Review,
   ContactSubmission,
-  NewsletterSubscriber
-} from '@prisma/client';
-import session from 'express-session';
-import connectMongo from 'connect-mongo';
+  NewsletterSubscriber,
+  CmsPage,
+  ServiceablePincode,
+  Disclaimer,
+  Promotion
+} from './models';
+
+// Types for MongoDB documents
+export type UserDocument = mongoose.Document & {
+  username: string;
+  email: string;
+  password: string;
+  fullName?: string;
+  mobile?: string;
+  address?: any;
+  role: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ProductDocument = mongoose.Document & {
+  name: string;
+  slug: string;
+  description?: string;
+  longDescription?: string;
+  price: number;
+  originalPrice?: number;
+  images: string[];
+  features: string[];
+  category: mongoose.Types.ObjectId;
+  brand?: string;
+  ageGroup?: string;
+  stock: number;
+  rating: number;
+  reviewCount: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CategoryDocument = mongoose.Document & {
+  name: string;
+  slug: string;
+  parentId?: mongoose.Types.ObjectId;
+  description?: string;
+  image?: string;
+  isActive: boolean;
+  type?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CartItemDocument = mongoose.Document & {
+  user: mongoose.Types.ObjectId;
+  product: mongoose.Types.ObjectId;
+  quantity: number;
+  selectedColor?: string;
+  selectedSize?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type WishlistItemDocument = mongoose.Document & {
+  user: mongoose.Types.ObjectId;
+  product: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type OrderDocument = mongoose.Document & {
+  user: mongoose.Types.ObjectId;
+  items: mongoose.Types.ObjectId[];
+  total: number;
+  status: string;
+  paymentMethod: string;
+  shippingAddress: any;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type OrderItemDocument = mongoose.Document & {
+  order: mongoose.Types.ObjectId;
+  product: mongoose.Types.ObjectId;
+  productName: string;
+  productImage: string;
+  quantity: number;
+  price: number;
+  selectedColor?: string;
+  selectedSize?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ReviewDocument = mongoose.Document & {
+  user: mongoose.Types.ObjectId;
+  product: mongoose.Types.ObjectId;
+  rating: number;
+  review?: string;
+  title?: string;
+  images?: string[];
+  isVerifiedPurchase: boolean;
+  isApproved: boolean;
+  isHelpful: number;
+  isNotHelpful: number;
+  adminReply?: {
+    text: string;
+    date: Date;
+    adminUser: mongoose.Types.ObjectId;
+  };
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ContactSubmissionDocument = mongoose.Document & {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  isResolved: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type NewsletterSubscriberDocument = mongoose.Document & {
+  email: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CmsPageDocument = mongoose.Document & {
+  title: string;
+  slug: string;
+  content: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  isActive: boolean;
+  author?: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ServiceablePincodeDocument = mongoose.Document & {
+  pincode: string;
+  city?: string;
+  state?: string;
+  deliveryDays: number;
+  isActive: boolean;
+  codAvailable: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type DisclaimerDocument = mongoose.Document & {
+  title: string;
+  content: string;
+  type: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type PromotionDocument = mongoose.Document & {
+  name: string;
+  code: string;
+  type: string;
+  value: number;
+  isPercentage: boolean;
+  minOrderValue: number;
+  maxDiscount?: number;
+  applicableProducts?: mongoose.Types.ObjectId[];
+  applicableCategories?: mongoose.Types.ObjectId[];
+  startDate: Date;
+  endDate: Date;
+  usageLimit?: number;
+  perUserLimit: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 // Product filter options interface
 interface ProductFilterOptions {
@@ -29,7 +212,7 @@ export class MongoDBStorage implements IStorage {
   constructor() {
     // Create the session store directly
     this.sessionStore = connectMongo.create({
-      mongoUrl: process.env.MONGODB_URL || process.env.DATABASE_URL || '',
+      mongoUrl: process.env.MONGODB_URL || '',
       collectionName: 'sessions',
       ttl: 14 * 24 * 60 * 60, // 14 days
     });
@@ -38,9 +221,8 @@ export class MongoDBStorage implements IStorage {
   // User-related methods
   async getUser(id: string): Promise<User | undefined> {
     try {
-      return await prisma.user.findUnique({
-        where: { id }
-      });
+      const user = await User.findById(id).lean();
+      return user || undefined;
     } catch (error) {
       console.error('Error fetching user:', error);
       return undefined;
@@ -49,20 +231,39 @@ export class MongoDBStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      return await prisma.user.findUnique({
-        where: { username }
-      });
+      const user = await User.findOne({ username }).lean();
+      return user || undefined;
     } catch (error) {
       console.error('Error fetching user by username:', error);
       return undefined;
     }
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      const user = await User.findOne({ email }).lean();
+      return user || undefined;
+    } catch (error) {
+      console.error('Error fetching user by email:', error);
+      return undefined;
+    }
+  }
+
+  async getUserByMobile(mobile: string): Promise<User | undefined> {
+    try {
+      const user = await User.findOne({ mobile }).lean();
+      return user || undefined;
+    } catch (error) {
+      console.error('Error fetching user by mobile:', error);
+      return undefined;
+    }
+  }
+
   async createUser(userData: any): Promise<User> {
     try {
-      return await prisma.user.create({
-        data: userData
-      });
+      const user = new User(userData);
+      await user.save();
+      return user.toObject();
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -71,10 +272,13 @@ export class MongoDBStorage implements IStorage {
 
   async updateUser(id: string, userData: Partial<any>): Promise<User | undefined> {
     try {
-      return await prisma.user.update({
-        where: { id },
-        data: userData
-      });
+      const user = await User.findByIdAndUpdate(
+        id,
+        { $set: userData },
+        { new: true }
+      ).lean();
+      
+      return user || undefined;
     } catch (error) {
       console.error('Error updating user:', error);
       return undefined;
@@ -86,43 +290,61 @@ export class MongoDBStorage implements IStorage {
     try {
       const { category, subcategory, sort, limit } = options;
       
-      // Build where condition based on filters
-      const whereCondition: any = { isActive: true };
+      // Build query conditions
+      const query: any = { isActive: true };
       
+      // Add category filter if provided
       if (category) {
-        const categoryRecord = await prisma.category.findUnique({
-          where: { slug: category }
-        });
+        const categoryDoc = await Category.findOne({ slug: category }).lean();
+        if (categoryDoc) {
+          query.category = categoryDoc._id;
+        }
+      }
+      
+      // Add subcategory filter if provided
+      if (subcategory) {
+        const subcategoryDoc = await Category.findOne({ 
+          slug: subcategory,
+          parentId: { $exists: true } 
+        }).lean();
         
-        if (categoryRecord) {
-          whereCondition.categoryId = categoryRecord.id;
+        if (subcategoryDoc) {
+          query.subcategory = subcategoryDoc._id;
         }
       }
       
-      // Order by logic
-      let orderBy: any = { createdAt: 'desc' };
+      // Create the base query
+      let productsQuery = Product.find(query);
+      
+      // Add sorting
       if (sort === 'price-low-high') {
-        orderBy = { price: 'asc' };
+        productsQuery = productsQuery.sort({ price: 1 });
       } else if (sort === 'price-high-low') {
-        orderBy = { price: 'desc' };
+        productsQuery = productsQuery.sort({ price: -1 });
       } else if (sort === 'name-a-z') {
-        orderBy = { name: 'asc' };
+        productsQuery = productsQuery.sort({ name: 1 });
       } else if (sort === 'name-z-a') {
-        orderBy = { name: 'desc' };
+        productsQuery = productsQuery.sort({ name: -1 });
       } else if (sort === 'newest') {
-        orderBy = { createdAt: 'desc' };
+        productsQuery = productsQuery.sort({ createdAt: -1 });
       } else if (sort === 'rating') {
-        orderBy = { rating: 'desc' };
+        productsQuery = productsQuery.sort({ rating: -1 });
+      } else {
+        // Default sorting
+        productsQuery = productsQuery.sort({ createdAt: -1 });
       }
       
-      return await prisma.product.findMany({
-        where: whereCondition,
-        orderBy,
-        take: limit ? limit : undefined,
-        include: {
-          category: true
-        }
-      });
+      // Add limit if provided
+      if (limit) {
+        productsQuery = productsQuery.limit(limit);
+      }
+      
+      // Execute query with populate
+      const products = await productsQuery
+        .populate('category')
+        .lean();
+      
+      return products;
     } catch (error) {
       console.error('Error fetching products:', error);
       return [];
@@ -131,22 +353,22 @@ export class MongoDBStorage implements IStorage {
 
   async getProductById(id: string): Promise<Product | undefined> {
     try {
-      return await prisma.product.findUnique({
-        where: { id },
-        include: {
-          category: true,
-          reviews: {
-            include: {
-              user: {
-                select: {
-                  username: true,
-                  fullName: true
-                }
-              }
-            }
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const product = await Product.findById(id)
+        .populate('category')
+        .populate({
+          path: 'reviews',
+          populate: {
+            path: 'user',
+            select: 'username fullName'
           }
-        }
-      });
+        })
+        .lean();
+      
+      return product || undefined;
     } catch (error) {
       console.error('Error fetching product by ID:', error);
       return undefined;
@@ -155,22 +377,18 @@ export class MongoDBStorage implements IStorage {
 
   async getProductBySlug(slug: string): Promise<Product | undefined> {
     try {
-      return await prisma.product.findUnique({
-        where: { slug },
-        include: {
-          category: true,
-          reviews: {
-            include: {
-              user: {
-                select: {
-                  username: true,
-                  fullName: true
-                }
-              }
-            }
+      const product = await Product.findOne({ slug })
+        .populate('category')
+        .populate({
+          path: 'reviews',
+          populate: {
+            path: 'user',
+            select: 'username fullName'
           }
-        }
-      });
+        })
+        .lean();
+      
+      return product || undefined;
     } catch (error) {
       console.error('Error fetching product by slug:', error);
       return undefined;
@@ -179,22 +397,26 @@ export class MongoDBStorage implements IStorage {
 
   async getSimilarProducts(productId: string, limit: number = 4): Promise<Product[]> {
     try {
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        select: { categoryId: true }
-      });
+      if (!mongoose.Types.ObjectId.isValid(productId)) {
+        return [];
+      }
+      
+      // Get the product to find its category
+      const product = await Product.findById(productId).select('category').lean();
       
       if (!product) return [];
       
-      return await prisma.product.findMany({
-        where: {
-          categoryId: product.categoryId,
-          id: { not: productId },
-          isActive: true
-        },
-        take: limit,
-        orderBy: { rating: 'desc' }
-      });
+      // Find similar products (same category, different product)
+      const similarProducts = await Product.find({
+        category: product.category,
+        _id: { $ne: productId },
+        isActive: true
+      })
+      .sort({ rating: -1 })
+      .limit(limit)
+      .lean();
+      
+      return similarProducts;
     } catch (error) {
       console.error('Error fetching similar products:', error);
       return [];
@@ -203,18 +425,22 @@ export class MongoDBStorage implements IStorage {
 
   async searchProducts(query: string): Promise<Product[]> {
     try {
-      return await prisma.product.findMany({
-        where: {
-          OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-            { brand: { contains: query, mode: 'insensitive' } }
-          ],
-          isActive: true
-        },
-        orderBy: { rating: 'desc' },
-        take: 20
-      });
+      // Create text search query
+      const searchQuery = {
+        $or: [
+          { name: { $regex: query, $options: 'i' } },
+          { description: { $regex: query, $options: 'i' } },
+          { brand: { $regex: query, $options: 'i' } }
+        ],
+        isActive: true
+      };
+      
+      const products = await Product.find(searchQuery)
+        .sort({ rating: -1 })
+        .limit(20)
+        .lean();
+      
+      return products;
     } catch (error) {
       console.error('Error searching products:', error);
       return [];
@@ -224,18 +450,32 @@ export class MongoDBStorage implements IStorage {
   // Category-related methods
   async getCategories(): Promise<Category[]> {
     try {
-      return await prisma.category.findMany({
-        where: {
-          isActive: true,
-          parentId: null // Return only main categories
-        },
-        include: {
-          subCategories: {
-            where: { isActive: true }
-          }
-        },
-        orderBy: { name: 'asc' }
-      });
+      // Find all main categories (no parentId)
+      const categories = await Category.find({
+        isActive: true,
+        parentId: { $exists: false }
+      })
+      .sort({ name: 1 })
+      .lean();
+      
+      // For each category, find its subcategories
+      const categoriesWithSubs = await Promise.all(
+        categories.map(async (category) => {
+          const subCategories = await Category.find({
+            parentId: category._id,
+            isActive: true
+          })
+          .sort({ name: 1 })
+          .lean();
+          
+          return {
+            ...category,
+            subCategories
+          };
+        })
+      );
+      
+      return categoriesWithSubs;
     } catch (error) {
       console.error('Error fetching categories:', error);
       return [];
@@ -244,15 +484,30 @@ export class MongoDBStorage implements IStorage {
 
   async getCategoryBySlug(slug: string): Promise<Category | undefined> {
     try {
-      return await prisma.category.findUnique({
-        where: { slug },
-        include: {
-          subCategories: {
-            where: { isActive: true }
-          },
-          parent: true
-        }
-      });
+      const category = await Category.findOne({ slug })
+        .lean();
+      
+      if (!category) return undefined;
+      
+      // Get subcategories
+      const subCategories = await Category.find({
+        parentId: category._id,
+        isActive: true
+      })
+      .sort({ name: 1 })
+      .lean();
+      
+      // Get parent if it exists
+      let parent = null;
+      if (category.parentId) {
+        parent = await Category.findById(category.parentId).lean();
+      }
+      
+      return {
+        ...category,
+        subCategories,
+        parent
+      };
     } catch (error) {
       console.error('Error fetching category by slug:', error);
       return undefined;
@@ -261,13 +516,18 @@ export class MongoDBStorage implements IStorage {
 
   async getSubcategories(categoryId: string): Promise<Category[]> {
     try {
-      return await prisma.category.findMany({
-        where: {
-          parentId: categoryId,
-          isActive: true
-        },
-        orderBy: { name: 'asc' }
-      });
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return [];
+      }
+      
+      const subcategories = await Category.find({
+        parentId: categoryId,
+        isActive: true
+      })
+      .sort({ name: 1 })
+      .lean();
+      
+      return subcategories;
     } catch (error) {
       console.error('Error fetching subcategories:', error);
       return [];
