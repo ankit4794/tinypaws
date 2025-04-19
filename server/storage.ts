@@ -1,4 +1,3 @@
-import { users, products, categories, cartItems, wishlistItems, orders, orderItems, reviews, contactSubmissions, newsletterSubscribers } from "@shared/schema";
 import type { 
   User, InsertUser, 
   Product, InsertProduct, 
@@ -12,9 +11,7 @@ import type {
   NewsletterSubscriber, InsertNewsletterSubscriber
 } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
-
-const MemoryStore = createMemoryStore(session);
+import connectMongo from "connect-mongo";
 
 // Product filter options interface
 interface ProductFilterOptions {
@@ -26,46 +23,46 @@ interface ProductFilterOptions {
 
 export interface IStorage {
   // User-related methods
-  getUser(id: string | number): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByMobile(mobile: string): Promise<User | undefined>;
   createUser(user: any): Promise<User>;
-  updateUser(id: string | number, userData: Partial<any>): Promise<User | undefined>;
+  updateUser(id: string, userData: Partial<any>): Promise<User | undefined>;
   
   // Product-related methods
   getProducts(options?: ProductFilterOptions): Promise<Product[]>;
-  getProductById(id: string | number): Promise<Product | undefined>;
+  getProductById(id: string): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
-  getSimilarProducts(productId: string | number, limit?: number): Promise<Product[]>;
+  getSimilarProducts(productId: string, limit?: number): Promise<Product[]>;
   searchProducts(query: string): Promise<Product[]>;
   
   // Category-related methods
   getCategories(): Promise<Category[]>;
   getCategoryBySlug(slug: string): Promise<Category | undefined>;
-  getSubcategories(categoryId: string | number): Promise<Category[]>;
+  getSubcategories(categoryId: string): Promise<Category[]>;
   
   // Cart-related methods
-  getCartItems(userId: string | number): Promise<CartItem[]>;
-  addToCart(userId: string | number, productId: string | number, quantity?: number, options?: { color?: string, size?: string }): Promise<CartItem>;
-  updateCartItemQuantity(userId: string | number, itemId: string | number, quantity: number): Promise<CartItem | undefined>;
-  removeFromCart(userId: string | number, itemId: string | number): Promise<void>;
-  clearCart(userId: string | number): Promise<void>;
+  getCartItems(userId: string): Promise<CartItem[]>;
+  addToCart(userId: string, productId: string, quantity?: number, options?: { color?: string, size?: string }): Promise<CartItem>;
+  updateCartItemQuantity(userId: string, itemId: string, quantity: number): Promise<CartItem | undefined>;
+  removeFromCart(userId: string, itemId: string): Promise<void>;
+  clearCart(userId: string): Promise<void>;
   
   // Wishlist-related methods
-  getWishlistItems(userId: string | number): Promise<WishlistItem[]>;
-  addToWishlist(userId: string | number, productId: string | number): Promise<WishlistItem>;
-  removeFromWishlist(userId: string | number, productId: string | number): Promise<void>;
+  getWishlistItems(userId: string): Promise<WishlistItem[]>;
+  addToWishlist(userId: string, productId: string): Promise<WishlistItem>;
+  removeFromWishlist(userId: string, productId: string): Promise<void>;
   
   // Order-related methods
-  createOrder(userId: string | number, items: any[], shippingAddress: any, paymentMethod: string): Promise<Order>;
-  getUserOrders(userId: string | number): Promise<Order[]>;
-  getOrderDetails(userId: string | number, orderId: string | number): Promise<(Order & { items: OrderItem[] }) | undefined>;
-  updateOrderStatus(orderId: string | number, status: string): Promise<Order | undefined>;
+  createOrder(userId: string, items: any[], shippingAddress: any, paymentMethod: string): Promise<Order>;
+  getUserOrders(userId: string): Promise<Order[]>;
+  getOrderDetails(userId: string, orderId: string): Promise<(Order & { items: OrderItem[] }) | undefined>;
+  updateOrderStatus(orderId: string, status: string): Promise<Order | undefined>;
   
   // Review-related methods
-  getProductReviews(productId: string | number): Promise<Review[]>;
-  addReview(userId: string | number, productId: string | number, rating: number, review: string): Promise<Review>;
+  getProductReviews(productId: string): Promise<Review[]>;
+  addReview(userId: string, productId: string, rating: number, review: string): Promise<Review>;
   
   // Contact-related methods
   submitContactForm(submission: any): Promise<ContactSubmission>;
@@ -80,341 +77,29 @@ export interface IStorage {
   getAllUsers?: () => Promise<User[]>;
   getAllOrders?: () => Promise<Order[]>;
   createProduct?: (productData: any) => Promise<Product>;
-  updateProduct?: (id: string | number, productData: any) => Promise<Product | undefined>;
-  deleteProduct?: (id: string | number) => Promise<void>;
+  updateProduct?: (id: string, productData: any) => Promise<Product | undefined>;
+  deleteProduct?: (id: string) => Promise<void>;
   createCategory?: (categoryData: any) => Promise<Category>;
-  updateCategory?: (id: string | number, categoryData: any) => Promise<Category | undefined>;
-  deleteCategory?: (id: string | number) => Promise<void>;
+  updateCategory?: (id: string, categoryData: any) => Promise<Category | undefined>;
+  deleteCategory?: (id: string) => Promise<void>;
   getContactSubmissions?: (resolved?: boolean) => Promise<ContactSubmission[]>;
-  updateContactSubmissionStatus?: (id: string | number, isResolved: boolean) => Promise<ContactSubmission | undefined>;
+  updateContactSubmissionStatus?: (id: string, isResolved: boolean) => Promise<ContactSubmission | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private products: Map<number, Product>;
-  private categories: Map<number, Category>;
-  private cartItems: Map<number, CartItem>;
-  private wishlistItems: Map<number, WishlistItem>;
-  private orders: Map<number, Order>;
-  private orderItems: Map<number, OrderItem>;
-  private reviews: Map<number, Review>;
-  private contactSubmissions: Map<number, ContactSubmission>;
-  private newsletterSubscribers: Map<number, NewsletterSubscriber>;
+// MongoDB session store setup
+export const getMongoSessionStore = () => {
+  const MongoStore = connectMongo(session);
   
-  sessionStore: session.Store;
-  currentUserId: number;
-  currentProductId: number;
-  currentCategoryId: number;
-  currentCartItemId: number;
-  currentWishlistItemId: number;
-  currentOrderId: number;
-  currentOrderItemId: number;
-  currentReviewId: number;
-  currentContactSubmissionId: number;
-  currentNewsletterSubscriberId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.products = new Map();
-    this.categories = new Map();
-    this.cartItems = new Map();
-    this.wishlistItems = new Map();
-    this.orders = new Map();
-    this.orderItems = new Map();
-    this.reviews = new Map();
-    this.contactSubmissions = new Map();
-    this.newsletterSubscribers = new Map();
-    
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // 24 hours
-    });
-    
-    this.currentUserId = 1;
-    this.currentProductId = 1;
-    this.currentCategoryId = 1;
-    this.currentCartItemId = 1;
-    this.currentWishlistItemId = 1;
-    this.currentOrderId = 1;
-    this.currentOrderItemId = 1;
-    this.currentReviewId = 1;
-    this.currentContactSubmissionId = 1;
-    this.currentNewsletterSubscriberId = 1;
-    
-    this.initializeData();
-  }
-
-  // Initialize sample data for development
-  private initializeData() {
-    // Initialize categories
-    const categoryData: InsertCategory[] = [
-      {
-        name: "Dogs",
-        slug: "dogs",
-        description: "Products for dogs",
-        image: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1969&q=80",
-        isActive: true,
-      },
-      {
-        name: "Cats",
-        slug: "cats",
-        description: "Products for cats",
-        image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2043&q=80",
-        isActive: true,
-      },
-      {
-        name: "Small Animals",
-        slug: "small-animals",
-        description: "Products for small animals",
-        image: "https://images.unsplash.com/photo-1591561582301-7ce6587cc286?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80",
-        isActive: true,
-      }
-    ];
-    
-    // Add subcategories
-    const subcategoryData: InsertCategory[] = [
-      // Dog subcategories
-      {
-        name: "Food",
-        slug: "dogs/food",
-        description: "Food for dogs",
-        parentId: 1,
-        isActive: true,
-      },
-      {
-        name: "Treats",
-        slug: "dogs/treats",
-        description: "Treats for dogs",
-        parentId: 1,
-        isActive: true,
-      },
-      {
-        name: "Toys",
-        slug: "dogs/toys",
-        description: "Toys for dogs",
-        parentId: 1,
-        isActive: true,
-      },
-      {
-        name: "Accessories",
-        slug: "dogs/accessories",
-        description: "Accessories for dogs",
-        parentId: 1,
-        isActive: true,
-      },
-      {
-        name: "Grooming",
-        slug: "dogs/grooming",
-        description: "Grooming products for dogs",
-        parentId: 1,
-        isActive: true,
-      },
-      
-      // Cat subcategories
-      {
-        name: "Food",
-        slug: "cats/food",
-        description: "Food for cats",
-        parentId: 2,
-        isActive: true,
-      },
-      {
-        name: "Litter & Accessories",
-        slug: "cats/litter",
-        description: "Litter and accessories for cats",
-        parentId: 2,
-        isActive: true,
-      },
-      {
-        name: "Toys",
-        slug: "cats/toys",
-        description: "Toys for cats",
-        parentId: 2,
-        isActive: true,
-      },
-      {
-        name: "Accessories",
-        slug: "cats/accessories",
-        description: "Accessories for cats",
-        parentId: 2,
-        isActive: true,
-      },
-      {
-        name: "Grooming",
-        slug: "cats/grooming",
-        description: "Grooming products for cats",
-        parentId: 2,
-        isActive: true,
-      },
-      
-      // Small Animals subcategories
-      {
-        name: "Birds",
-        slug: "small-animals/birds",
-        description: "Products for birds",
-        parentId: 3,
-        isActive: true,
-      },
-      {
-        name: "Fish",
-        slug: "small-animals/fish",
-        description: "Products for fish",
-        parentId: 3,
-        isActive: true,
-      },
-      {
-        name: "Hamsters",
-        slug: "small-animals/hamsters",
-        description: "Products for hamsters",
-        parentId: 3,
-        isActive: true,
-      },
-      {
-        name: "Rabbits",
-        slug: "small-animals/rabbits",
-        description: "Products for rabbits",
-        parentId: 3,
-        isActive: true,
-      }
-    ];
-    
-    // Initialize products
-    const productData: InsertProduct[] = [
-      {
-        name: "Premium Dog Food",
-        slug: "premium-dog-food",
-        description: "High-quality dog food with balanced nutrition",
-        longDescription: "<p>Our premium dog food is specially formulated to provide complete and balanced nutrition for dogs of all ages. Made with real chicken as the first ingredient, this food supports healthy muscles and energy levels.</p><p>Key benefits include:</p><ul><li>Rich in protein for muscle development</li><li>Contains omega fatty acids for healthy skin and coat</li><li>Added vitamins and minerals for immune support</li><li>No artificial colors, flavors, or preservatives</li></ul>",
-        price: 79900, // ₹799
-        originalPrice: 99900, // ₹999
-        images: [
-          "https://images.unsplash.com/photo-1585846888969-42ae2458f267?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80"
-        ],
-        category: "dogs",
-        subcategory: "food",
-        brand: "Royal Canin",
-        features: [
-          "Made with real chicken",
-          "No artificial preservatives",
-          "Supports healthy digestion",
-          "Contains essential vitamins and minerals"
-        ],
-        rating: 4.5,
-        reviewCount: 42,
-        stock: 100,
-        isActive: true,
-      },
-      {
-        name: "Cat Scratching Post",
-        slug: "cat-scratching-post",
-        description: "Durable cat scratching post for feline friends",
-        longDescription: "<p>Give your cat a dedicated place to sharpen their claws with our premium scratching post. This sturdy post is covered in natural sisal rope which cats love to scratch and helps save your furniture from damage.</p><p>The wide base provides stability, and the plush toy on top adds an element of play to entice your cat to use it regularly.</p>",
-        price: 149900, // ₹1,499
-        originalPrice: 189900, // ₹1,899
-        images: [
-          "https://images.unsplash.com/photo-1623620387429-89ac15da10dc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1958&q=80"
-        ],
-        category: "cats",
-        subcategory: "accessories",
-        brand: "PetZilla",
-        features: [
-          "Natural sisal rope covering",
-          "Sturdy base for stability",
-          "Plush toy on top",
-          "Easy to assemble"
-        ],
-        rating: 5.0,
-        reviewCount: 37,
-        stock: 50,
-        isActive: true,
-      },
-      {
-        name: "Durable Dog Leash",
-        slug: "durable-dog-leash",
-        description: "Strong and comfortable dog leash for walks",
-        longDescription: "<p>Our premium quality dog leash is made with durable materials for your furry friend's safety and comfort. Features a comfortable padded handle and reflective stitching for night-time visibility.</p><p>Available in multiple colors and sizes to suit dogs of all breeds and sizes. The strong metal clip ensures secure attachment to your dog's collar or harness.</p>",
-        price: 69900, // ₹699
-        originalPrice: 89900, // ₹899
-        images: [
-          "https://images.unsplash.com/photo-1592948078472-4b015cf88c9d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-          "https://images.unsplash.com/photo-1535294435445-d7249524ef2e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-          "https://images.unsplash.com/photo-1560743641-3914f2c45636?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80",
-          "https://images.unsplash.com/photo-1541599468348-e96984315921?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1972&q=80"
-        ],
-        category: "dogs",
-        subcategory: "accessories",
-        brand: "Kong",
-        features: [
-          "Made with high-quality nylon",
-          "Comfortable padded handle",
-          "Reflective stitching for night visibility",
-          "Strong metal clip"
-        ],
-        rating: 4.0,
-        reviewCount: 29,
-        stock: 75,
-        isActive: true,
-      },
-      {
-        name: "Deluxe Hamster Cage",
-        slug: "deluxe-hamster-cage",
-        description: "Spacious and comfortable cage for hamsters",
-        longDescription: "<p>Create a perfect home for your hamster with our deluxe cage setup. This multi-level habitat provides plenty of space for exercise and exploration with ramps, tunnels, and platforms.</p><p>The deep plastic base prevents bedding from being kicked out, and the secure wire top ensures proper ventilation while keeping your pet safely contained. Includes a quiet exercise wheel, water bottle, and food dish.</p>",
-        price: 249900, // ₹2,499
-        originalPrice: 299900, // ₹2,999
-        images: [
-          "https://images.unsplash.com/photo-1618053935231-4c1f6e6c1336?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80"
-        ],
-        category: "small-animals",
-        subcategory: "hamsters",
-        brand: "PetZilla",
-        features: [
-          "Multiple levels for exercise",
-          "Deep base to contain bedding",
-          "Includes exercise wheel and accessories",
-          "Easy to clean and assemble"
-        ],
-        rating: 4.5,
-        reviewCount: 18,
-        stock: 30,
-        isActive: true,
-      }
-    ];
-    
-    // Add all categories
-    categoryData.forEach(category => {
-      this.categories.set(this.currentCategoryId, {
-        ...category,
-        id: this.currentCategoryId++,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    });
-    
-    // Add all subcategories
-    subcategoryData.forEach(subcategory => {
-      this.categories.set(this.currentCategoryId, {
-        ...subcategory,
-        id: this.currentCategoryId++,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    });
-    
-    // Add all products
-    productData.forEach(product => {
-      this.products.set(this.currentProductId, {
-        ...product,
-        id: this.currentProductId++,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    });
-  }
-
-  // User-related methods
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
+  return new MongoStore({
+    mongoUrl: process.env.MONGODB_URL || process.env.MONGO_URI,
+    ttl: 14 * 24 * 60 * 60, // 14 days session expiration time
+    autoRemove: 'native', // Use MongoDB's TTL index
+    touchAfter: 24 * 3600, // Touch session only once in 24 hours for better performance
+    autoReconnect: true, // Auto reconnect when connection is lost
+    ssl: true,
+    sslValidate: true,
+  });
+};
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(

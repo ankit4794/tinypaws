@@ -3,9 +3,9 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import connectToDatabase from "./db";
 import { MongoDBStorage } from './mongodb-storage';
-import { MemStorage, type IStorage } from './storage';
+import { type IStorage } from './storage';
 
-// Create a storage provider that properly handles both MongoDB and in-memory storage
+// Create a storage provider that uses MongoDB only
 class StorageProvider {
   private _instance: IStorage | null = null;
   private _initialized: boolean = false;
@@ -13,9 +13,8 @@ class StorageProvider {
   private _initPromise: Promise<void> | null = null;
   
   constructor() {
-    // Default to in-memory storage to allow the app to function immediately
-    this._instance = new MemStorage();
-    console.log('Created initial in-memory storage instance');
+    // Initially null, will be set to MongoDB storage during initialization
+    this._instance = null;
   }
   
   async initialize(): Promise<void> {
@@ -30,48 +29,32 @@ class StorageProvider {
         console.log('Attempting to connect to MongoDB...');
         const mongoConnection = await connectToDatabase();
         
-        if (mongoConnection && mongoConnection.readyState === 1) {
-          console.log('MongoDB connected successfully, switching to MongoDB storage');
-          this._instance = new MongoDBStorage();
+        // Create MongoDB storage instance
+        this._instance = new MongoDBStorage();
+        
+        // Initialize admin user in MongoDB
+        try {
+          console.log('Creating initial admin user...');
+          const adminUser = await this._instance.getUserByUsername('admin');
           
-          // Set up reconnection handling
-          mongoConnection.on('disconnected', () => {
-            console.warn('MongoDB disconnected. Application will continue with in-memory fallback');
-            this._instance = new MemStorage();
-          });
-          
-          mongoConnection.on('reconnected', () => {
-            console.log('MongoDB reconnected. Switching back to MongoDB storage');
-            this._instance = new MongoDBStorage();
-          });
-          
-          // Initialize admin user in MongoDB
-          try {
-            console.log('Checking for admin user...');
-            const adminUser = await this._instance.getUserByUsername('admin');
-            
-            if (!adminUser) {
-              console.log('Creating initial admin user...');
-              await this._instance.createUser({
-                username: 'admin',
-                password: 'Admin@123', // This will be hashed in the storage implementation
-                email: 'admin@tinypaws.com',
-                mobile: '9876543210',
-                role: 'admin'
-              });
-              console.log('Admin user created successfully');
-            } else {
-              console.log('Admin user already exists');
-            }
-          } catch (userError) {
-            console.error('Error managing admin user:', userError);
+          if (!adminUser) {
+            await this._instance.createUser({
+              username: 'admin',
+              password: 'Admin@123', // This will be hashed in the storage implementation
+              email: 'admin@tinypaws.com',
+              mobile: '9876543210',
+              role: 'admin'
+            });
+            console.log('Initial admin created successfully');
+          } else {
+            console.log('Admin user already exists');
           }
-        } else {
-          console.warn('MongoDB connection not ready, continuing with in-memory storage');
+        } catch (userError) {
+          console.error('Error creating admin user:', userError);
         }
       } catch (error) {
-        console.error('Failed to connect to MongoDB, using in-memory storage:', error);
-        // Keep using the in-memory storage that was already created
+        console.error('Failed to connect to MongoDB:', error);
+        throw new Error('MongoDB connection failed - application requires MongoDB');
       } finally {
         this._initialized = true;
         this._initializing = false;
@@ -84,8 +67,8 @@ class StorageProvider {
   
   get instance(): IStorage {
     if (!this._instance) {
-      console.warn('Storage accessed before initialization, using in-memory storage');
-      this._instance = new MemStorage();
+      this._instance = new MongoDBStorage();
+      console.warn('Storage accessed before initialization, initializing MongoDB storage');
     }
     return this._instance;
   }
