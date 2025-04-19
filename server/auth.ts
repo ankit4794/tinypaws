@@ -423,7 +423,32 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  // Logout endpoint
+  // Admin user endpoint - returns the current admin user data
+  app.get('/api/admin/user', (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Admin privileges required' });
+    }
+    
+    // Return user data without password
+    const { password, ...userData } = req.user;
+    return res.json(userData);
+  });
+  
+  // Admin logout endpoint
+  app.post('/api/admin/logout', (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      res.status(200).json({ message: 'Logged out successfully' });
+    });
+  });
+
+  // Regular logout endpoint
   app.post('/api/logout', (req, res) => {
     req.logout((err) => {
       if (err) {
