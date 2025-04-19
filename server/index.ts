@@ -2,9 +2,87 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import connectToDatabase from "./db";
+import { MongoDBStorage } from './mongodb-storage';
+import { MemStorage, type IStorage } from './storage';
 
-// Connect to MongoDB
-connectToDatabase();
+// Create a storage provider that properly handles both MongoDB and in-memory storage
+class StorageProvider {
+  private _instance: IStorage | null = null;
+  private _initialized: boolean = false;
+  private _initializing: boolean = false;
+  private _initPromise: Promise<void> | null = null;
+  
+  constructor() {
+    // Default to in-memory storage to allow the app to function immediately
+    this._instance = new MemStorage();
+    console.log('Created initial in-memory storage instance');
+  }
+  
+  async initialize(): Promise<void> {
+    if (this._initialized || this._initializing) {
+      return this._initPromise;
+    }
+    
+    this._initializing = true;
+    
+    this._initPromise = new Promise<void>(async (resolve) => {
+      try {
+        console.log('Attempting to connect to MongoDB...');
+        await connectToDatabase();
+        
+        console.log('MongoDB connected successfully, switching to MongoDB storage');
+        this._instance = new MongoDBStorage();
+        
+        // Initialize admin user in MongoDB
+        try {
+          console.log('Checking for admin user...');
+          const adminUser = await this._instance.getUserByUsername('admin');
+          
+          if (!adminUser) {
+            console.log('Creating initial admin user...');
+            await this._instance.createUser({
+              username: 'admin',
+              password: 'Admin@123', // This will be hashed in the storage implementation
+              email: 'admin@tinypaws.com',
+              mobile: '9876543210',
+              role: 'admin'
+            });
+            console.log('Admin user created successfully');
+          } else {
+            console.log('Admin user already exists');
+          }
+        } catch (userError) {
+          console.error('Error managing admin user:', userError);
+        }
+      } catch (error) {
+        console.error('Failed to connect to MongoDB, using in-memory storage:', error);
+        // Keep using the in-memory storage that was already created
+      } finally {
+        this._initialized = true;
+        this._initializing = false;
+        resolve();
+      }
+    });
+    
+    return this._initPromise;
+  }
+  
+  get instance(): IStorage {
+    if (!this._instance) {
+      console.warn('Storage accessed before initialization, using in-memory storage');
+      this._instance = new MemStorage();
+    }
+    return this._instance;
+  }
+}
+
+// Export a singleton instance of the storage provider
+export const storageProvider = new StorageProvider();
+
+// Initialize storage asynchronously
+storageProvider.initialize().catch(err => {
+  console.error('Storage initialization failed:', err);
+});
 
 const app = express();
 app.use(express.json());

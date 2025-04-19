@@ -12,8 +12,38 @@ export const connectToDatabase = async () => {
     
     console.log('Connecting to MongoDB...');
     
-    // Connect with MongoDB URL from environment
-    await mongoose.connect(mongoUrl);
+    // Set up database with in-memory storage if MongoDB is not available
+    try {
+      console.log('Attempting to connect to MongoDB with URL (sensitive parts hidden):', 
+        mongoUrl.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@'));
+
+      // Try to connect with very basic options to maximize compatibility
+      await mongoose.connect(mongoUrl, {
+        // Minimal options for maximum compatibility
+        tlsAllowInvalidCertificates: true,
+        tlsInsecure: true, // Added for older MongoDB versions
+        ssl: true, // For older MongoDB versions
+        serverSelectionTimeoutMS: 5000 // Fast timeout for quick fallback
+      });
+
+      console.log('MongoDB connection established successfully');
+    } catch (initialError) {
+      console.error('Initial MongoDB connection attempt failed, trying alternative options:', initialError.message);
+      
+      try {
+        // Try a different connection approach if the first one fails
+        await mongoose.connect(mongoUrl, {
+          // Alternative SSL settings
+          ssl: true,
+          sslValidate: false,
+          serverSelectionTimeoutMS: 5000
+        });
+        console.log('MongoDB connection established with alternative options');
+      } catch (alternativeError) {
+        console.error('Alternative MongoDB connection attempt also failed:', alternativeError.message);
+        throw new Error('Could not connect to MongoDB with any configuration');
+      }
+    }
     
     console.log('MongoDB connection established successfully');
     

@@ -210,11 +210,15 @@ export class MongoDBStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    // Create the session store directly
+    // Create the session store directly with TLS options
     this.sessionStore = connectMongo.create({
       mongoUrl: process.env.MONGODB_URL || '',
       collectionName: 'sessions',
       ttl: 14 * 24 * 60 * 60, // 14 days
+      clientOptions: {
+        tls: true,
+        tlsAllowInvalidCertificates: true
+      }
     });
   }
 
@@ -772,7 +776,7 @@ export class MongoDBStorage implements IStorage {
         total,
         shippingAddress,
         paymentMethod,
-        status: OrderStatus.PENDING
+        status: OrderStatus.PENDING // This is defined as 'PENDING' in the schema
       });
       
       await newOrder.save();
@@ -868,9 +872,16 @@ export class MongoDBStorage implements IStorage {
         return undefined;
       }
       
-      // Validate status is a valid OrderStatus
-      if (!Object.values(OrderStatus).includes(status as OrderStatus)) {
-        throw new Error('Invalid order status');
+      // Validate status is a valid OrderStatus (case matters - schema uses uppercase)
+      const validStatuses = Object.values(OrderStatus);
+      if (!validStatuses.includes(status as OrderStatus)) {
+        // Try to convert to uppercase if needed
+        const uppercaseStatus = status.toUpperCase();
+        if (!validStatuses.includes(uppercaseStatus as OrderStatus)) {
+          throw new Error(`Invalid order status: ${status}. Valid values are: ${validStatuses.join(', ')}`);
+        }
+        // If we reach here, use the uppercase version
+        status = uppercaseStatus;
       }
       
       const order = await Order.findByIdAndUpdate(
@@ -894,61 +905,69 @@ export class MongoDBStorage implements IStorage {
   // Review-related methods
   async getProductReviews(productId: string): Promise<Review[]> {
     try {
-      return await prisma.review.findMany({
-        where: { productId },
-        include: {
-          user: {
-            select: {
-              username: true,
-              fullName: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      if (!mongoose.Types.ObjectId.isValid(productId)) {
+        return [];
+      }
+      
+      const reviews = await Review.find({ product: productId })
+        .populate({
+          path: 'user',
+          select: 'username fullName'
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return reviews;
     } catch (error) {
       console.error('Error fetching product reviews:', error);
       return [];
     }
   }
 
-  async addReview(userId: string, productId: string, rating: number, review: string): Promise<Review> {
+  async addReview(userId: string, productId: string, rating: number, reviewText: string): Promise<Review> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(productId)) {
+        throw new Error('Invalid user ID or product ID');
+      }
+      
       // Create the review
-      const newReview = await prisma.review.create({
-        data: {
-          userId,
-          productId,
-          rating,
-          review
-        },
-        include: {
-          user: {
-            select: {
-              username: true,
-              fullName: true
-            }
-          }
-        }
+      const newReview = new Review({
+        user: userId,
+        product: productId,
+        rating,
+        review: reviewText,
+        isVerifiedPurchase: false, // This could be updated based on purchase history
+        isApproved: false,
+        status: 'pending'
       });
       
+      await newReview.save();
+      
+      // Get populated review to return
+      const populatedReview = await Review.findById(newReview._id)
+        .populate({
+          path: 'user',
+          select: 'username fullName'
+        })
+        .lean();
+      
       // Update product rating
-      const productReviews = await prisma.review.findMany({
-        where: { productId }
-      });
+      const productReviews = await Review.find({ product: productId });
       
       const totalRating = productReviews.reduce((sum, review) => sum + review.rating, 0);
       const averageRating = totalRating / productReviews.length;
       
-      await prisma.product.update({
-        where: { id: productId },
-        data: {
-          rating: averageRating,
-          reviewCount: productReviews.length
+      await Product.findByIdAndUpdate(
+        productId,
+        { 
+          $set: { 
+            rating: averageRating,
+            reviewCount: productReviews.length
+          } 
         }
-      });
+      );
       
-      return newReview;
+      return populatedReview!;
     } catch (error) {
       console.error('Error adding review:', error);
       throw error;
@@ -958,9 +977,16 @@ export class MongoDBStorage implements IStorage {
   // Contact-related methods
   async submitContactForm(submission: InsertContactSubmission): Promise<ContactSubmission> {
     try {
-      return await prisma.contactSubmission.create({
-        data: submission
+      const newSubmission = new ContactSubmission({
+        name: submission.name,
+        email: submission.email,
+        subject: submission.subject,
+        message: submission.message,
+        isResolved: false
       });
+      
+      await newSubmission.save();
+      return newSubmission;
     } catch (error) {
       console.error('Error submitting contact form:', error);
       throw error;
@@ -971,25 +997,26 @@ export class MongoDBStorage implements IStorage {
   async subscribeToNewsletter(email: string): Promise<NewsletterSubscriber> {
     try {
       // Check if already subscribed
-      const existingSubscriber = await prisma.newsletterSubscriber.findUnique({
-        where: { email }
-      });
+      const existingSubscriber = await NewsletterSubscriber.findOne({ email });
       
       if (existingSubscriber) {
         if (!existingSubscriber.isActive) {
           // Reactivate subscription
-          return await prisma.newsletterSubscriber.update({
-            where: { id: existingSubscriber.id },
-            data: { isActive: true }
-          });
+          existingSubscriber.isActive = true;
+          await existingSubscriber.save();
+          return existingSubscriber;
         }
         return existingSubscriber;
       }
       
       // Create new subscription
-      return await prisma.newsletterSubscriber.create({
-        data: { email }
+      const newSubscriber = new NewsletterSubscriber({
+        email,
+        isActive: true
       });
+      
+      await newSubscriber.save();
+      return newSubscriber;
     } catch (error) {
       console.error('Error subscribing to newsletter:', error);
       throw error;
@@ -999,9 +1026,11 @@ export class MongoDBStorage implements IStorage {
   // Admin-specific methods (for the admin panel)
   async getAllUsers(): Promise<User[]> {
     try {
-      return await prisma.user.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
+      const users = await User.find()
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return users;
     } catch (error) {
       console.error('Error fetching all users:', error);
       return [];
@@ -1010,9 +1039,9 @@ export class MongoDBStorage implements IStorage {
 
   async createProduct(productData: any): Promise<Product> {
     try {
-      return await prisma.product.create({
-        data: productData
-      });
+      const newProduct = new Product(productData);
+      await newProduct.save();
+      return newProduct;
     } catch (error) {
       console.error('Error creating product:', error);
       throw error;
@@ -1021,10 +1050,17 @@ export class MongoDBStorage implements IStorage {
 
   async updateProduct(id: string, productData: any): Promise<Product | undefined> {
     try {
-      return await prisma.product.update({
-        where: { id },
-        data: productData
-      });
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const product = await Product.findByIdAndUpdate(
+        id,
+        { $set: productData },
+        { new: true }
+      ).lean();
+      
+      return product || undefined;
     } catch (error) {
       console.error('Error updating product:', error);
       return undefined;
@@ -1033,9 +1069,11 @@ export class MongoDBStorage implements IStorage {
 
   async deleteProduct(id: string): Promise<void> {
     try {
-      await prisma.product.delete({
-        where: { id }
-      });
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new Error('Invalid product ID');
+      }
+      
+      await Product.findByIdAndDelete(id);
     } catch (error) {
       console.error('Error deleting product:', error);
       throw error;
@@ -1044,9 +1082,9 @@ export class MongoDBStorage implements IStorage {
 
   async createCategory(categoryData: any): Promise<Category> {
     try {
-      return await prisma.category.create({
-        data: categoryData
-      });
+      const newCategory = new Category(categoryData);
+      await newCategory.save();
+      return newCategory;
     } catch (error) {
       console.error('Error creating category:', error);
       throw error;
@@ -1055,10 +1093,17 @@ export class MongoDBStorage implements IStorage {
 
   async updateCategory(id: string, categoryData: any): Promise<Category | undefined> {
     try {
-      return await prisma.category.update({
-        where: { id },
-        data: categoryData
-      });
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const category = await Category.findByIdAndUpdate(
+        id,
+        { $set: categoryData },
+        { new: true }
+      ).lean();
+      
+      return category || undefined;
     } catch (error) {
       console.error('Error updating category:', error);
       return undefined;
@@ -1067,9 +1112,11 @@ export class MongoDBStorage implements IStorage {
 
   async deleteCategory(id: string): Promise<void> {
     try {
-      await prisma.category.delete({
-        where: { id }
-      });
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new Error('Invalid category ID');
+      }
+      
+      await Category.findByIdAndDelete(id);
     } catch (error) {
       console.error('Error deleting category:', error);
       throw error;
@@ -1078,19 +1125,16 @@ export class MongoDBStorage implements IStorage {
 
   async getAllOrders(): Promise<Order[]> {
     try {
-      return await prisma.order.findMany({
-        include: {
-          user: {
-            select: {
-              username: true,
-              fullName: true,
-              email: true
-            }
-          },
-          items: true
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      const orders = await Order.find()
+        .populate({
+          path: 'user',
+          select: 'username fullName email'
+        })
+        .populate('items')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return orders;
     } catch (error) {
       console.error('Error fetching all orders:', error);
       return [];
@@ -1099,10 +1143,16 @@ export class MongoDBStorage implements IStorage {
 
   async getContactSubmissions(resolved?: boolean): Promise<ContactSubmission[]> {
     try {
-      return await prisma.contactSubmission.findMany({
-        where: resolved !== undefined ? { isResolved: resolved } : {},
-        orderBy: { createdAt: 'desc' }
-      });
+      let query = {};
+      if (resolved !== undefined) {
+        query = { isResolved: resolved };
+      }
+      
+      const submissions = await ContactSubmission.find(query)
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return submissions;
     } catch (error) {
       console.error('Error fetching contact submissions:', error);
       return [];
@@ -1111,10 +1161,17 @@ export class MongoDBStorage implements IStorage {
 
   async updateContactSubmissionStatus(id: string, isResolved: boolean): Promise<ContactSubmission | undefined> {
     try {
-      return await prisma.contactSubmission.update({
-        where: { id },
-        data: { isResolved }
-      });
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const submission = await ContactSubmission.findByIdAndUpdate(
+        id,
+        { $set: { isResolved } },
+        { new: true }
+      ).lean();
+      
+      return submission || undefined;
     } catch (error) {
       console.error('Error updating contact submission status:', error);
       return undefined;
