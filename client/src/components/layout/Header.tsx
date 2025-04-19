@@ -59,8 +59,9 @@ const Header = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle search functionality
-    console.log("Searching for:", searchQuery);
+    if (searchQuery.trim()) {
+      window.location.href = `/products/search?q=${encodeURIComponent(searchQuery)}`;
+    }
   };
 
   const handleLogout = () => {
