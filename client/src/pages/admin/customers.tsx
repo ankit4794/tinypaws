@@ -1,18 +1,48 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Search, Eye, Ban, Mail } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Search, Eye, Ban, Mail, PlusCircle } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+
+// Schema for customer form
+const customerSchema = z.object({
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  mobile: z.string().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  address: z.object({
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    pincode: z.string().optional(),
+  }).optional(),
+});
+
+type CustomerFormValues = z.infer<typeof customerSchema>;
 
 export default function CustomersManagement() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
   // Fetch customers
   const { data: customers, isLoading } = useQuery({
@@ -22,6 +52,52 @@ export default function CustomersManagement() {
       return await res.json();
     },
   });
+
+  // Mutation for adding a new customer
+  const addCustomerMutation = useMutation({
+    mutationFn: async (data: CustomerFormValues) => {
+      const res = await apiRequest("POST", "/api/admin/customers", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Customer added successfully",
+      });
+      setIsAddDialogOpen(false);
+      // Refetch the customers list
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Form for adding a new customer
+  const form = useForm<CustomerFormValues>({
+    resolver: zodResolver(customerSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      mobile: "",
+      password: "",
+      address: {
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
+      },
+    },
+  });
+
+  // Handle form submission
+  const onSubmit = (data: CustomerFormValues) => {
+    addCustomerMutation.mutate(data);
+  };
 
   // Filter customers based on search query
   const filteredCustomers = customers ? customers.filter(customer => 
@@ -35,6 +111,10 @@ export default function CustomersManagement() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-2xl font-bold">Customers Management</CardTitle>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Customer
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex items-center gap-2">
@@ -165,6 +245,159 @@ export default function CustomersManagement() {
               </TabsContent>
             </Tabs>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Customer Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Customer</DialogTitle>
+            <DialogDescription>
+              Create a new customer account. All fields marked with * are required.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter customer's full name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="customer@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="mobile"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter mobile number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password *</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <h3 className="text-sm font-medium mt-4">Address (Optional)</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="address.street"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Street address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="address.city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="City" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="address.state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State</FormLabel>
+                      <FormControl>
+                        <Input placeholder="State" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="address.pincode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pincode</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Pincode" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <DialogFooter className="pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={addCustomerMutation.isPending}
+                >
+                  {addCustomerMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : "Add Customer"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
