@@ -33,8 +33,8 @@ router.get('/', withAdminAuth, async (req, res) => {
     }
     
     const [promotions, total] = await Promise.all([
-      storage.getPromotions(skip, limit, filters),
-      storage.getPromotionsCount(filters),
+     storageProvider.instance.getPromotions(skip, limit, filters),
+     storageProvider.instance.getPromotionsCount(filters),
     ]);
     
     res.json({
@@ -53,15 +53,15 @@ router.post('/', withAdminAuth, async (req, res) => {
     const promotionData = insertPromotionSchema.parse(req.body);
     
     // Check if a promotion with this code already exists
-    const existingPromotion = await storage.getPromotionByCode(promotionData.code);
+    const existingPromotion = awaitstorageProvider.instance.getPromotionByCode(promotionData.code);
     if (existingPromotion) {
       return res.status(400).json({ error: 'A promotion with this code already exists' });
     }
     
-    const promotion = await storage.createPromotion(promotionData);
+    const promotion = awaitstorageProvider.instance.createPromotion(promotionData);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'create',
       resourceType: 'promotion',
@@ -86,7 +86,7 @@ router.post('/', withAdminAuth, async (req, res) => {
 // Get a specific promotion
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const promotion = await storage.getPromotion(req.params.id);
+    const promotion = awaitstorageProvider.instance.getPromotion(req.params.id);
     
     if (!promotion) {
       return res.status(404).json({ error: 'Promotion not found' });
@@ -103,7 +103,7 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 router.patch('/:id', withAdminAuth, async (req, res) => {
   try {
     const promotionId = req.params.id;
-    const existingPromotion = await storage.getPromotion(promotionId);
+    const existingPromotion = awaitstorageProvider.instance.getPromotion(promotionId);
     
     if (!existingPromotion) {
       return res.status(404).json({ error: 'Promotion not found' });
@@ -114,16 +114,16 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
     
     // If code is being updated, check it's not already in use
     if (updateData.code && updateData.code !== existingPromotion.code) {
-      const promoWithCode = await storage.getPromotionByCode(updateData.code);
+      const promoWithCode = awaitstorageProvider.instance.getPromotionByCode(updateData.code);
       if (promoWithCode && promoWithCode.id.toString() !== promotionId) {
         return res.status(400).json({ error: 'Code is already in use by another promotion' });
       }
     }
     
-    const promotion = await storage.updatePromotion(promotionId, updateData);
+    const promotion = awaitstorageProvider.instance.updatePromotion(promotionId, updateData);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'update',
       resourceType: 'promotion',
@@ -154,16 +154,16 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const promotionId = req.params.id;
-    const existingPromotion = await storage.getPromotion(promotionId);
+    const existingPromotion = awaitstorageProvider.instance.getPromotion(promotionId);
     
     if (!existingPromotion) {
       return res.status(404).json({ error: 'Promotion not found' });
     }
     
-    await storage.deletePromotion(promotionId);
+    awaitstorageProvider.instance.deletePromotion(promotionId);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'delete',
       resourceType: 'promotion',
@@ -188,7 +188,7 @@ router.delete('/:id', withAdminAuth, async (req, res) => {
 router.get('/:id/usage', withAdminAuth, async (req, res) => {
   try {
     const promotionId = req.params.id;
-    const metrics = await storage.getPromotionUsageMetrics(promotionId);
+    const metrics = awaitstorageProvider.instance.getPromotionUsageMetrics(promotionId);
     
     res.json(metrics);
   } catch (error) {

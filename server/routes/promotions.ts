@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { storage } from '../storage';
+import { storageProvider } from '../index';
 
 const router = Router();
 
@@ -12,7 +12,7 @@ router.post('/validate', async (req, res) => {
       return res.status(400).json({ error: 'Promotion code is required' });
     }
     
-    const promotion = await storage.getPromotionByCode(code);
+    const promotion = awaitstorageProvider.instance.getPromotionByCode(code);
     
     // Check if promotion exists and is active
     if (!promotion || !promotion.isActive) {
@@ -35,7 +35,7 @@ router.post('/validate', async (req, res) => {
     // Check if user has already used this promotion (if authenticated)
     if (req.isAuthenticated() && promotion.perUserLimit > 0) {
       const userId = req.user.id;
-      const usageCount = await storage.getUserPromotionUsageCount(userId, promotion.id);
+      const usageCount = awaitstorageProvider.instance.getUserPromotionUsageCount(userId, promotion.id);
       
       if (usageCount >= promotion.perUserLimit) {
         return res.status(400).json({ 
@@ -75,7 +75,7 @@ router.post('/validate', async (req, res) => {
     else if (promotion.applicableCategories && promotion.applicableCategories.length > 0) {
       // Get product categories for items in cart
       const productIds = cartItems.map(item => item.productId);
-      const products = await storage.getProductsByIds(productIds);
+      const products = awaitstorageProvider.instance.getProductsByIds(productIds);
       
       // Filter cart items whose products belong to applicable categories
       applicableItems = cartItems.filter(item => {
@@ -135,7 +135,7 @@ router.post('/validate', async (req, res) => {
 // Get active promotions for display in the storefront
 router.get('/active', async (req, res) => {
   try {
-    const promotions = await storage.getActivePromotions();
+    const promotions = awaitstorageProvider.instance.getActivePromotions();
     
     // Don't send back sensitive data like usage limits
     const safePromotions = promotions.map(promo => ({

@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { storage } from '../storage';
+import { storageProvider } from '../index';
 
 const router = Router();
 
 // Get all active disclaimers
 router.get('/', async (req, res) => {
   try {
-    const disclaimers = await storage.getActiveDisclaimers();
+    const disclaimers = awaitstorageProvider.instance.getActiveDisclaimers();
     res.json(disclaimers);
   } catch (error) {
     console.error('Error fetching disclaimers:', error);
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 router.get('/type/:type', async (req, res) => {
   try {
     const type = req.params.type;
-    const disclaimers = await storage.getDisclaimersByType(type);
+    const disclaimers = awaitstorageProvider.instance.getDisclaimersByType(type);
     res.json(disclaimers);
   } catch (error) {
     console.error('Error fetching disclaimers by type:', error);

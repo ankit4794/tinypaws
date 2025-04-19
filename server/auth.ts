@@ -6,7 +6,7 @@ import { Express, Request } from 'express';
 import session from 'express-session';
 import { scrypt, randomBytes, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
-import { storage } from './storage';
+import { storageProvider } from './index';
 import { User, UserRole } from '@shared/schema';
 import jwt from 'jsonwebtoken';
 import twilio from 'twilio';
@@ -130,7 +130,7 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || 'tinypaws-secret-key-123',
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
+    store: storageProvider.instance.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
@@ -146,7 +146,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storage.getUserByUsername(username);
+        const user = awaitstorageProvider.instance.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false);
         }
@@ -169,7 +169,7 @@ export function setupAuth(app: Express) {
       async (accessToken, refreshToken, profile, done) => {
         try {
           // Check if user already exists
-          let user = await storage.getUserByUsername(profile.emails?.[0]?.value || '');
+          let user = awaitstorageProvider.instance.getUserByUsername(profile.emails?.[0]?.value || '');
           
           // If user doesn't exist, create a new one
           if (!user) {
@@ -179,7 +179,7 @@ export function setupAuth(app: Express) {
             }
             
             const randomPass = randomBytes(16).toString('hex');
-            user = await storage.createUser({
+            user = awaitstorageProvider.instance.createUser({
               username: email,
               email: email,
               password: await hashPassword(randomPass),
@@ -194,7 +194,7 @@ export function setupAuth(app: Express) {
           } 
           // If user exists but doesn't have googleId, update it
           else if (!user.googleId) {
-            user = await storage.updateUser(user.id, {
+            user = awaitstorageProvider.instance.updateUser(user.id, {
               googleId: profile.id,
               updatedAt: new Date()
             });
@@ -220,7 +220,7 @@ export function setupAuth(app: Express) {
       async (accessToken, refreshToken, profile, done) => {
         try {
           // Check if user already exists
-          let user = await storage.getUserByUsername(profile.emails?.[0]?.value || '');
+          let user = awaitstorageProvider.instance.getUserByUsername(profile.emails?.[0]?.value || '');
           
           // If user doesn't exist, create a new one
           if (!user) {
@@ -230,7 +230,7 @@ export function setupAuth(app: Express) {
             }
             
             const randomPass = randomBytes(16).toString('hex');
-            user = await storage.createUser({
+            user = awaitstorageProvider.instance.createUser({
               username: email,
               email: email,
               password: await hashPassword(randomPass),
@@ -245,7 +245,7 @@ export function setupAuth(app: Express) {
           } 
           // If user exists but doesn't have facebookId, update it
           else if (!user.facebookId) {
-            user = await storage.updateUser(user.id, {
+            user = awaitstorageProvider.instance.updateUser(user.id, {
               facebookId: profile.id,
               updatedAt: new Date()
             });
@@ -265,7 +265,7 @@ export function setupAuth(app: Express) {
 
   passport.deserializeUser(async (id: string, done) => {
     try {
-      const user = await storage.getUser(id);
+      const user = awaitstorageProvider.instance.getUser(id);
       done(null, user || undefined);
     } catch (error) {
       done(error);
@@ -278,19 +278,19 @@ export function setupAuth(app: Express) {
       const { username, email, password, fullName } = req.body;
 
       // Check if user already exists
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = awaitstorageProvider.instance.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ error: 'Username already exists' });
       }
 
       // Check if email already exists
-      const existingEmail = await storage.getUserByUsername(email);
+      const existingEmail = awaitstorageProvider.instance.getUserByUsername(email);
       if (existingEmail) {
         return res.status(400).json({ error: 'Email already exists' });
       }
 
       // Create new user
-      const user = await storage.createUser({
+      const user = awaitstorageProvider.instance.createUser({
         username,
         email,
         password: await hashPassword(password),
@@ -331,13 +331,13 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user already exists
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = awaitstorageProvider.instance.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ error: 'Username already exists' });
       }
 
       // Create new admin user
-      const user = await storage.createUser({
+      const user = awaitstorageProvider.instance.createUser({
         username,
         email,
         password: await hashPassword(password),
@@ -433,7 +433,7 @@ export function setupAuth(app: Express) {
       const { fullName, email, mobile, address } = req.body;
       
       // Update user data
-      const updatedUser = await storage.updateUser(userId, {
+      const updatedUser = awaitstorageProvider.instance.updateUser(userId, {
         fullName,
         email,
         mobile,
@@ -470,7 +470,7 @@ export function setupAuth(app: Express) {
       }
       
       // Get current user data
-      const user = await storage.getUser(userId);
+      const user = awaitstorageProvider.instance.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -481,7 +481,7 @@ export function setupAuth(app: Express) {
       }
       
       // Update password
-      const updatedUser = await storage.updateUser(userId, {
+      const updatedUser = awaitstorageProvider.instance.updateUser(userId, {
         password: await hashPassword(newPassword),
         updatedAt: new Date()
       });
@@ -599,10 +599,10 @@ export function setupAuth(app: Express) {
       
       if (contactType === 'email') {
         // Check if user with this email exists
-        user = await storage.getUserByEmail(contactMethod);
+        user = awaitstorageProvider.instance.getUserByEmail(contactMethod);
       } else {
         // Check if user with this mobile exists
-        user = await storage.getUserByMobile(contactMethod);
+        user = awaitstorageProvider.instance.getUserByMobile(contactMethod);
       }
       
       // Create new user if not exists
@@ -634,7 +634,7 @@ export function setupAuth(app: Express) {
           userData.email = null;
         }
         
-        user = await storage.createUser(userData);
+        user = awaitstorageProvider.instance.createUser(userData);
       }
       
       // Log the user in
@@ -730,7 +730,7 @@ export function setupAuth(app: Express) {
       }
       
       // Find user by mobile number
-      const user = await storage.getUserByMobile(decoded.mobile);
+      const user = awaitstorageProvider.instance.getUserByMobile(decoded.mobile);
       
       if (!user) {
         return res.redirect('/auth?error=user_not_found');
@@ -769,12 +769,12 @@ export function setupAuth(app: Express) {
 async function createInitialAdminIfNeeded() {
   try {
     // Check if any admin exists
-    const existingAdmin = await storage.getUserByUsername('admin');
+    const existingAdmin = awaitstorageProvider.instance.getUserByUsername('admin');
     
     if (!existingAdmin) {
       console.log('Creating initial admin user...');
       
-      await storage.createUser({
+      awaitstorageProvider.instance.createUser({
         username: 'admin',
         email: 'admin@tinypaws.com',
         password: await hashPassword('admin123'),

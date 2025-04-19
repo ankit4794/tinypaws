@@ -13,8 +13,8 @@ router.get('/', withAdminAuth, async (req, res) => {
     const skip = (page - 1) * limit;
 
     const [pincodes, total] = await Promise.all([
-      storage.getPincodes(skip, limit),
-      storage.getPincodesCount(),
+     storageProvider.instance.getPincodes(skip, limit),
+     storageProvider.instance.getPincodesCount(),
     ]);
 
     res.json({
@@ -33,15 +33,15 @@ router.post('/', withAdminAuth, async (req, res) => {
     const pincodeData = insertServiceablePincodeSchema.parse(req.body);
     
     // Check if pincode already exists
-    const existingPincode = await storage.getPincodeByCode(pincodeData.pincode);
+    const existingPincode = awaitstorageProvider.instance.getPincodeByCode(pincodeData.pincode);
     if (existingPincode) {
       return res.status(400).json({ error: 'Pincode already exists' });
     }
     
-    const pincode = await storage.createPincode(pincodeData);
+    const pincode = awaitstorageProvider.instance.createPincode(pincodeData);
     
     // Log the activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'create',
       resourceType: 'pincode',
@@ -66,7 +66,7 @@ router.post('/', withAdminAuth, async (req, res) => {
 // Get pincode by ID
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const pincode = await storage.getPincode(req.params.id);
+    const pincode = awaitstorageProvider.instance.getPincode(req.params.id);
     
     if (!pincode) {
       return res.status(404).json({ error: 'Pincode not found' });
@@ -83,7 +83,7 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 router.patch('/:id', withAdminAuth, async (req, res) => {
   try {
     const pincodeId = req.params.id;
-    const existingPincode = await storage.getPincode(pincodeId);
+    const existingPincode = awaitstorageProvider.instance.getPincode(pincodeId);
     
     if (!existingPincode) {
       return res.status(404).json({ error: 'Pincode not found' });
@@ -92,10 +92,10 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
     // Allow partial updates
     const updateData = req.body;
     
-    const pincode = await storage.updatePincode(pincodeId, updateData);
+    const pincode = awaitstorageProvider.instance.updatePincode(pincodeId, updateData);
     
     // Log the activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'update',
       resourceType: 'pincode',
@@ -124,16 +124,16 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const pincodeId = req.params.id;
-    const existingPincode = await storage.getPincode(pincodeId);
+    const existingPincode = awaitstorageProvider.instance.getPincode(pincodeId);
     
     if (!existingPincode) {
       return res.status(404).json({ error: 'Pincode not found' });
     }
     
-    await storage.deletePincode(pincodeId);
+    awaitstorageProvider.instance.deletePincode(pincodeId);
     
     // Log the activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'delete',
       resourceType: 'pincode',

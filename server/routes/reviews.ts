@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { storage } from '../storage';
+import { storageProvider } from '../index';
 import { insertReviewSchema } from '../../shared/schema';
 
 const router = Router();
@@ -20,8 +20,8 @@ router.get('/product/:productId', async (req, res) => {
     };
     
     const [reviews, total] = await Promise.all([
-      storage.getReviews(skip, limit, filters),
-      storage.getReviewsCount(filters),
+     storageProvider.instance.getReviews(skip, limit, filters),
+     storageProvider.instance.getReviewsCount(filters),
     ]);
     
     res.json({
@@ -38,7 +38,7 @@ router.get('/product/:productId', async (req, res) => {
 router.get('/product/:productId/summary', async (req, res) => {
   try {
     const productId = req.params.productId;
-    const summary = await storage.getProductReviewSummary(productId);
+    const summary = awaitstorageProvider.instance.getProductReviewSummary(productId);
     
     res.json(summary);
   } catch (error) {
@@ -62,16 +62,16 @@ router.post('/', async (req, res) => {
     });
     
     // Check if the user has already reviewed this product
-    const existingReview = await storage.getUserProductReview(userId, reviewData.product);
+    const existingReview = awaitstorageProvider.instance.getUserProductReview(userId, reviewData.product);
     if (existingReview) {
       return res.status(400).json({ error: 'You have already reviewed this product' });
     }
     
     // Check if this is a verified purchase
-    const isVerifiedPurchase = await storage.hasUserPurchasedProduct(userId, reviewData.product);
+    const isVerifiedPurchase = awaitstorageProvider.instance.hasUserPurchasedProduct(userId, reviewData.product);
     
     // By default, reviews are pending approval
-    const review = await storage.createReview({
+    const review = awaitstorageProvider.instance.createReview({
       ...reviewData,
       isVerifiedPurchase,
       isApproved: false,
@@ -96,7 +96,7 @@ router.post('/:id/helpful', async (req, res) => {
     const reviewId = req.params.id;
     const isHelpful = req.body.isHelpful === true;
     
-    const review = await storage.updateReviewHelpfulness(reviewId, isHelpful);
+    const review = awaitstorageProvider.instance.updateReviewHelpfulness(reviewId, isHelpful);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
@@ -123,8 +123,8 @@ router.get('/user', async (req, res) => {
     const skip = (page - 1) * limit;
     
     const [reviews, total] = await Promise.all([
-      storage.getUserReviews(userId, skip, limit),
-      storage.getUserReviewsCount(userId),
+     storageProvider.instance.getUserReviews(userId, skip, limit),
+     storageProvider.instance.getUserReviewsCount(userId),
     ]);
     
     res.json({

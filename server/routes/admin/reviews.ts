@@ -48,8 +48,8 @@ router.get('/', withAdminAuth, async (req, res) => {
     }
     
     const [reviews, total] = await Promise.all([
-      storage.getReviews(skip, limit, filters),
-      storage.getReviewsCount(filters),
+     storageProvider.instance.getReviews(skip, limit, filters),
+     storageProvider.instance.getReviewsCount(filters),
     ]);
     
     res.json({
@@ -65,7 +65,7 @@ router.get('/', withAdminAuth, async (req, res) => {
 // Get review analytics (rating distribution, etc.)
 router.get('/analytics', withAdminAuth, async (req, res) => {
   try {
-    const analytics = await storage.getReviewsAnalytics();
+    const analytics = awaitstorageProvider.instance.getReviewsAnalytics();
     res.json(analytics);
   } catch (error) {
     console.error('Error fetching review analytics:', error);
@@ -76,7 +76,7 @@ router.get('/analytics', withAdminAuth, async (req, res) => {
 // Get a specific review
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const review = await storage.getReview(req.params.id);
+    const review = awaitstorageProvider.instance.getReview(req.params.id);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
@@ -93,22 +93,22 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 router.patch('/:id/approve', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = await storage.getReview(reviewId);
+    const review = awaitstorageProvider.instance.getReview(reviewId);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
     
-    const updatedReview = await storage.updateReview(reviewId, {
+    const updatedReview = awaitstorageProvider.instance.updateReview(reviewId, {
       isApproved: true,
       status: 'approved',
     });
     
     // If this review is for a product, update the product's rating
-    await storage.updateProductRating(review.product.toString());
+    awaitstorageProvider.instance.updateProductRating(review.product.toString());
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'approve',
       resourceType: 'review',
@@ -129,19 +129,19 @@ router.patch('/:id/approve', withAdminAuth, async (req, res) => {
 router.patch('/:id/reject', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = await storage.getReview(reviewId);
+    const review = awaitstorageProvider.instance.getReview(reviewId);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
     
-    const updatedReview = await storage.updateReview(reviewId, {
+    const updatedReview = awaitstorageProvider.instance.updateReview(reviewId, {
       isApproved: false,
       status: 'rejected',
     });
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'reject',
       resourceType: 'review',
@@ -162,7 +162,7 @@ router.patch('/:id/reject', withAdminAuth, async (req, res) => {
 router.post('/:id/reply', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = await storage.getReview(reviewId);
+    const review = awaitstorageProvider.instance.getReview(reviewId);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
@@ -173,14 +173,14 @@ router.post('/:id/reply', withAdminAuth, async (req, res) => {
       adminUser: req.session.user.id,
     });
     
-    const updatedReview = await storage.addReviewReply(reviewId, {
+    const updatedReview = awaitstorageProvider.instance.addReviewReply(reviewId, {
       text: replyData.text,
       date: new Date(),
       adminUser: replyData.adminUser,
     });
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'reply',
       resourceType: 'review',
@@ -206,7 +206,7 @@ router.post('/:id/reply', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = await storage.getReview(reviewId);
+    const review = awaitstorageProvider.instance.getReview(reviewId);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
@@ -214,13 +214,13 @@ router.delete('/:id', withAdminAuth, async (req, res) => {
     
     const productId = review.product.toString();
     
-    await storage.deleteReview(reviewId);
+    awaitstorageProvider.instance.deleteReview(reviewId);
     
     // Update the product's rating
-    await storage.updateProductRating(productId);
+    awaitstorageProvider.instance.updateProductRating(productId);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'delete',
       resourceType: 'review',

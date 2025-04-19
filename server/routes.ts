@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
-import { storage } from "./storage";
+import { storageProvider } from "./index"; // Import the storageProvider
 import { z } from "zod";
 import reviewsRoutes from "./routes/reviews";
 import cmsRoutes from "./routes/cms";
@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { category, subcategory, sort, limit } = req.query;
       
-      const products = await storage.getProducts({
+      const products = await storageProvider.instance.getProducts({
         category: category as string,
         subcategory: subcategory as string,
         sort: sort as string,
@@ -40,7 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const product = await storage.getProductById(parseInt(id));
+      const product = await storageProvider.instance.getProductById(parseInt(id));
       
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -56,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/similar/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const similarProducts = await storage.getSimilarProducts(parseInt(id));
+      const similarProducts = awaitstorageProvider.instance.getSimilarProducts(parseInt(id));
       res.json(similarProducts);
     } catch (error) {
       console.error("Error fetching similar products:", error);
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Category-related routes
   app.get("/api/categories", async (req, res) => {
     try {
-      const categories = await storage.getCategories();
+      const categories = awaitstorageProvider.instance.getCategories();
       res.json(categories);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -83,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const cartItems = await storage.getCartItems(userId);
+      const cartItems = awaitstorageProvider.instance.getCartItems(userId);
       res.json(cartItems);
     } catch (error) {
       console.error("Error fetching cart:", error);
@@ -100,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { productId, quantity } = req.body;
       
-      const updatedCart = await storage.addToCart(userId, productId, quantity);
+      const updatedCart = awaitstorageProvider.instance.addToCart(userId, productId, quantity);
       res.json(updatedCart);
     } catch (error) {
       console.error("Error adding to cart:", error);
@@ -117,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { itemId } = req.params;
       
-      await storage.removeFromCart(userId, parseInt(itemId));
+      awaitstorageProvider.instance.removeFromCart(userId, parseInt(itemId));
       res.sendStatus(204);
     } catch (error) {
       console.error("Error removing from cart:", error);
@@ -133,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const wishlistItems = await storage.getWishlistItems(userId);
+      const wishlistItems = awaitstorageProvider.instance.getWishlistItems(userId);
       res.json(wishlistItems);
     } catch (error) {
       console.error("Error fetching wishlist:", error);
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { productId } = req.body;
       
-      const updatedWishlist = await storage.addToWishlist(userId, productId);
+      const updatedWishlist = awaitstorageProvider.instance.addToWishlist(userId, productId);
       res.json(updatedWishlist);
     } catch (error) {
       console.error("Error adding to wishlist:", error);
@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { productId } = req.params;
       
-      await storage.removeFromWishlist(userId, parseInt(productId));
+      awaitstorageProvider.instance.removeFromWishlist(userId, parseInt(productId));
       res.sendStatus(204);
     } catch (error) {
       console.error("Error removing from wishlist:", error);
@@ -185,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { items, shippingAddress, paymentMethod } = req.body;
       
-      const order = await storage.createOrder(userId, items, shippingAddress, paymentMethod);
+      const order = awaitstorageProvider.instance.createOrder(userId, items, shippingAddress, paymentMethod);
       res.status(201).json(order);
     } catch (error) {
       console.error("Error creating order:", error);
@@ -200,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const orders = await storage.getUserOrders(userId);
+      const orders = awaitstorageProvider.instance.getUserOrders(userId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -217,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const { orderId } = req.params;
       
-      const order = await storage.getOrderDetails(userId, parseInt(orderId));
+      const order = awaitstorageProvider.instance.getOrderDetails(userId, parseInt(orderId));
       
       if (!order) {
         return res.status(404).json({ message: "Order not found" });

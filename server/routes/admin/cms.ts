@@ -13,8 +13,8 @@ router.get('/', withAdminAuth, async (req, res) => {
     const skip = (page - 1) * limit;
     
     const [pages, total] = await Promise.all([
-      storage.getCmsPages(skip, limit),
-      storage.getCmsPagesCount(),
+     storageProvider.instance.getCmsPages(skip, limit),
+     storageProvider.instance.getCmsPagesCount(),
     ]);
     
     res.json({
@@ -33,7 +33,7 @@ router.post('/', withAdminAuth, async (req, res) => {
     const pageData = insertCmsPageSchema.parse(req.body);
     
     // Check if a page with this slug already exists
-    const existingPage = await storage.getCmsPageBySlug(pageData.slug);
+    const existingPage = awaitstorageProvider.instance.getCmsPageBySlug(pageData.slug);
     if (existingPage) {
       return res.status(400).json({ error: 'A page with this slug already exists' });
     }
@@ -44,10 +44,10 @@ router.post('/', withAdminAuth, async (req, res) => {
       author: req.session.user.id,
     };
     
-    const page = await storage.createCmsPage(pageWithAuthor);
+    const page = awaitstorageProvider.instance.createCmsPage(pageWithAuthor);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'create',
       resourceType: 'cms-page',
@@ -72,7 +72,7 @@ router.post('/', withAdminAuth, async (req, res) => {
 // Get a specific CMS page
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const page = await storage.getCmsPage(req.params.id);
+    const page = awaitstorageProvider.instance.getCmsPage(req.params.id);
     
     if (!page) {
       return res.status(404).json({ error: 'CMS page not found' });
@@ -89,7 +89,7 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 router.patch('/:id', withAdminAuth, async (req, res) => {
   try {
     const pageId = req.params.id;
-    const existingPage = await storage.getCmsPage(pageId);
+    const existingPage = awaitstorageProvider.instance.getCmsPage(pageId);
     
     if (!existingPage) {
       return res.status(404).json({ error: 'CMS page not found' });
@@ -100,16 +100,16 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
     
     // If slug is being updated, check it's not already in use
     if (updateData.slug && updateData.slug !== existingPage.slug) {
-      const pageWithSlug = await storage.getCmsPageBySlug(updateData.slug);
+      const pageWithSlug = awaitstorageProvider.instance.getCmsPageBySlug(updateData.slug);
       if (pageWithSlug && pageWithSlug.id.toString() !== pageId) {
         return res.status(400).json({ error: 'Slug is already in use by another page' });
       }
     }
     
-    const page = await storage.updateCmsPage(pageId, updateData);
+    const page = awaitstorageProvider.instance.updateCmsPage(pageId, updateData);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'update',
       resourceType: 'cms-page',
@@ -139,16 +139,16 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const pageId = req.params.id;
-    const existingPage = await storage.getCmsPage(pageId);
+    const existingPage = awaitstorageProvider.instance.getCmsPage(pageId);
     
     if (!existingPage) {
       return res.status(404).json({ error: 'CMS page not found' });
     }
     
-    await storage.deleteCmsPage(pageId);
+    awaitstorageProvider.instance.deleteCmsPage(pageId);
     
     // Log activity
-    await storage.logActivity({
+    awaitstorageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'delete',
       resourceType: 'cms-page',
