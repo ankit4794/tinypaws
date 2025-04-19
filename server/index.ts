@@ -28,31 +28,46 @@ class StorageProvider {
     this._initPromise = new Promise<void>(async (resolve) => {
       try {
         console.log('Attempting to connect to MongoDB...');
-        await connectToDatabase();
+        const mongoConnection = await connectToDatabase();
         
-        console.log('MongoDB connected successfully, switching to MongoDB storage');
-        this._instance = new MongoDBStorage();
-        
-        // Initialize admin user in MongoDB
-        try {
-          console.log('Checking for admin user...');
-          const adminUser = await this._instance.getUserByUsername('admin');
+        if (mongoConnection && mongoConnection.readyState === 1) {
+          console.log('MongoDB connected successfully, switching to MongoDB storage');
+          this._instance = new MongoDBStorage();
           
-          if (!adminUser) {
-            console.log('Creating initial admin user...');
-            await this._instance.createUser({
-              username: 'admin',
-              password: 'Admin@123', // This will be hashed in the storage implementation
-              email: 'admin@tinypaws.com',
-              mobile: '9876543210',
-              role: 'admin'
-            });
-            console.log('Admin user created successfully');
-          } else {
-            console.log('Admin user already exists');
+          // Set up reconnection handling
+          mongoConnection.on('disconnected', () => {
+            console.warn('MongoDB disconnected. Application will continue with in-memory fallback');
+            this._instance = new MemStorage();
+          });
+          
+          mongoConnection.on('reconnected', () => {
+            console.log('MongoDB reconnected. Switching back to MongoDB storage');
+            this._instance = new MongoDBStorage();
+          });
+          
+          // Initialize admin user in MongoDB
+          try {
+            console.log('Checking for admin user...');
+            const adminUser = await this._instance.getUserByUsername('admin');
+            
+            if (!adminUser) {
+              console.log('Creating initial admin user...');
+              await this._instance.createUser({
+                username: 'admin',
+                password: 'Admin@123', // This will be hashed in the storage implementation
+                email: 'admin@tinypaws.com',
+                mobile: '9876543210',
+                role: 'admin'
+              });
+              console.log('Admin user created successfully');
+            } else {
+              console.log('Admin user already exists');
+            }
+          } catch (userError) {
+            console.error('Error managing admin user:', userError);
           }
-        } catch (userError) {
-          console.error('Error managing admin user:', userError);
+        } else {
+          console.warn('MongoDB connection not ready, continuing with in-memory storage');
         }
       } catch (error) {
         console.error('Failed to connect to MongoDB, using in-memory storage:', error);
