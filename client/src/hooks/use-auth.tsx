@@ -152,6 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
       localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+      setUserState(null);
+      hasUpdatedStorage.current = false;
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
