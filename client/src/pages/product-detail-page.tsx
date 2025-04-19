@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet";
 import { Product } from "@shared/schema";
 import { useCart } from "@/hooks/use-cart";
@@ -11,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProductCard from "@/components/ui/ProductCard";
 import QuickViewModal from "@/components/ui/QuickViewModal";
+import { useProduct, useProducts } from "@/hooks/use-products";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -26,14 +26,13 @@ const ProductDetailPage = () => {
   const [showQuickView, setShowQuickView] = useState<boolean>(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // This would be a real API call in production
-  const { data: product, isLoading, error } = useQuery<Product>({
-    queryKey: [`/api/products/${id}`],
-  });
+  // Use our custom hook with caching for the product
+  const { data: product, isLoading, error } = useProduct(id);
 
-  // This would be a real API call in production for similar products
-  const { data: similarProducts, isLoading: isLoadingSimilar } = useQuery<Product[]>({
-    queryKey: ['/api/products/similar', id],
+  // Use our custom hook for similar products with caching
+  const { data: similarProducts, isLoading: isLoadingSimilar } = useProducts({
+    category: product?.category,
+    limit: 4,
     enabled: !!product,
   });
 

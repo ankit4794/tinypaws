@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { Product } from "@shared/schema";
 import ProductCard from "@/components/ui/ProductCard";
 import {
@@ -23,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge"; // Assuming these components exist
+import { useProducts } from "@/hooks/use-products";
 
 
 const ProductsPage = () => {
@@ -35,11 +35,11 @@ const ProductsPage = () => {
   const [pincode, setPincode] = useState(''); // Add pincode state
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]); // Add selected filters state
 
-
-  // This would be a real API call in production.  Needs MongoDB integration.
-  const { data, isLoading, error } = useQuery<Product[]>({
-    queryKey: ["/api/products", category, subcategory, pincode], // Include pincode in query key
-    enabled: !!category,
+  // Use our custom hook with caching
+  const { data, isLoading, error } = useProducts({
+    category,
+    subcategory,
+    sort: sortBy
   });
 
   useEffect(() => {
