@@ -94,7 +94,7 @@ const Header = () => {
             <Input
               type="text"
               placeholder="Search For Dog Food"
-              className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
+              className="w-full py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black text-black"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -113,7 +113,7 @@ const Header = () => {
             <div className="flex items-center space-x-4">
               <Link href="/account" className="hover:text-gray-700">
                 <span className="hidden md:inline">Hello, </span>
-                {user.username}
+                {user.fullName || user.email || user.mobile || "User"}
               </Link>
               <button 
                 onClick={handleLogout}

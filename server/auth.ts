@@ -160,10 +160,19 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storageProvider.instance.getUserByUsername(username);
+        // Try to find user by email first
+        let user = await storageProvider.instance.getUserByEmail(username);
+        
+        // If not found, try by mobile
+        if (!user) {
+          user = await storageProvider.instance.getUserByMobile(username);
+        }
+        
+        // If still not found or password doesn't match, authentication fails
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false);
         }
+        
         return done(null, user);
       } catch (error) {
         return done(error);
@@ -289,29 +298,31 @@ export function setupAuth(app: Express) {
   // Register a new user
   app.post('/api/register', async (req, res, next) => {
     try {
-      const { username, email, password, fullName } = req.body;
-
-      // Check if user already exists
-      const existingUser = await storageProvider.instance.getUserByUsername(username);
-      if (existingUser) {
-        return res.status(400).json({ error: 'Username already exists' });
-      }
+      const { email, password, fullName, mobile } = req.body;
 
       // Check if email already exists
-      const existingEmail = await storageProvider.instance.getUserByUsername(email);
+      const existingEmail = await storageProvider.instance.getUserByEmail(email);
       if (existingEmail) {
         return res.status(400).json({ error: 'Email already exists' });
       }
 
-      // Create new user
+      // Check if mobile already exists (if provided)
+      if (mobile) {
+        const existingMobile = await storageProvider.instance.getUserByMobile(mobile);
+        if (existingMobile) {
+          return res.status(400).json({ error: 'Mobile number already exists' });
+        }
+      }
+
+      // Create new user (using email as username for backward compatibility)
       const user = await storageProvider.instance.createUser({
-        username,
+        username: email, // Use email as username for backward compatibility
         email,
         password: await hashPassword(password),
         fullName: fullName || null,
         role: 'USER', // Default role
         address: null,
-        mobile: null,
+        mobile: mobile || null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
