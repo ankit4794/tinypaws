@@ -125,10 +125,13 @@ const AuthPage = () => {
   const handleEmailOTP = async (values: OtpEmailValues) => {
     try {
       setIsLoading(true);
-      const res = await apiRequest("POST", "/api/auth/send-email-otp", values);
+      const res = await apiRequest("POST", "/api/auth/request-otp", {
+        email: values.email,
+        channel: 'email'
+      });
       const data = await res.json();
       
-      setOtpRequestId(data.requestId);
+      setOtpRequestId(data.token);
       setOtpSentTo(values.email);
       setOtpMode('verify');
       
@@ -152,10 +155,13 @@ const AuthPage = () => {
   const handleMobileOTP = async (values: OtpMobileValues) => {
     try {
       setIsLoading(true);
-      const res = await apiRequest("POST", "/api/auth/send-mobile-otp", values);
+      const res = await apiRequest("POST", "/api/auth/request-otp", {
+        mobile: values.mobile,
+        channel: 'sms'
+      });
       const data = await res.json();
       
-      setOtpRequestId(data.requestId);
+      setOtpRequestId(data.token);
       setOtpSentTo(values.mobile);
       setOtpMode('verify');
       
@@ -180,8 +186,8 @@ const AuthPage = () => {
     try {
       setIsLoading(true);
       const res = await apiRequest("POST", "/api/auth/verify-otp", {
-        otp: values.otp,
-        requestId: otpRequestId,
+        token: otpRequestId,
+        otp: values.otp
       });
       
       const data = await res.json();
