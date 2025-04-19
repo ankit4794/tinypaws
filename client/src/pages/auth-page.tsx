@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Redirect, useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Form,
   FormControl,
@@ -17,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Loader2, ChevronRight } from "lucide-react";
 
 const loginSchema = z.object({
   username: z.string().min(3, { message: "Username must be at least 3 characters" }),
@@ -31,12 +34,34 @@ const registerSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
+const otpEmailSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
+});
+
+const otpMobileSchema = z.object({
+  mobile: z.string().regex(/^\d{10}$/, { message: "Please enter a valid 10-digit mobile number" }),
+});
+
+const otpVerifySchema = z.object({
+  otp: z.string().min(4, { message: "Please enter the OTP" }),
+});
+
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
+type OtpEmailValues = z.infer<typeof otpEmailSchema>;
+type OtpMobileValues = z.infer<typeof otpMobileSchema>;
+type OtpVerifyValues = z.infer<typeof otpVerifySchema>;
 
 const AuthPage = () => {
   const [, navigate] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
+  const { toast } = useToast();
+  
+  // State for OTP flow
+  const [otpMode, setOtpMode] = useState<'inactive' | 'email' | 'mobile' | 'verify'>('inactive');
+  const [otpSentTo, setOtpSentTo] = useState<string>('');
+  const [otpRequestId, setOtpRequestId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -70,18 +95,129 @@ const AuthPage = () => {
 
   const onRegisterSubmit = (values: RegisterValues) => {
     // Extract just the fields needed for registration
-    const { username, password } = values;
-    registerMutation.mutate({ username, password });
+    const { username, email, password, fullName, mobile } = values;
+    registerMutation.mutate({ username, email, password, fullName, mobile });
+  };
+
+  // Setup OTP form handlers
+  const otpEmailForm = useForm<OtpEmailValues>({
+    resolver: zodResolver(otpEmailSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
+
+  const otpMobileForm = useForm<OtpMobileValues>({
+    resolver: zodResolver(otpMobileSchema),
+    defaultValues: {
+      mobile: "",
+    },
+  });
+
+  const otpVerifyForm = useForm<OtpVerifyValues>({
+    resolver: zodResolver(otpVerifySchema),
+    defaultValues: {
+      otp: "",
+    },
+  });
+
+  // Send OTP via Email
+  const handleEmailOTP = async (values: OtpEmailValues) => {
+    try {
+      setIsLoading(true);
+      const res = await apiRequest("POST", "/api/auth/send-email-otp", values);
+      const data = await res.json();
+      
+      setOtpRequestId(data.requestId);
+      setOtpSentTo(values.email);
+      setOtpMode('verify');
+      
+      toast({
+        title: "OTP Sent",
+        description: `OTP has been sent to ${values.email}`,
+        duration: 5000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Send OTP via Mobile
+  const handleMobileOTP = async (values: OtpMobileValues) => {
+    try {
+      setIsLoading(true);
+      const res = await apiRequest("POST", "/api/auth/send-mobile-otp", values);
+      const data = await res.json();
+      
+      setOtpRequestId(data.requestId);
+      setOtpSentTo(values.mobile);
+      setOtpMode('verify');
+      
+      toast({
+        title: "OTP Sent",
+        description: `OTP has been sent to ${values.mobile}`,
+        duration: 5000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOTP = async (values: OtpVerifyValues) => {
+    try {
+      setIsLoading(true);
+      const res = await apiRequest("POST", "/api/auth/verify-otp", {
+        otp: values.otp,
+        requestId: otpRequestId,
+      });
+      
+      const data = await res.json();
+      
+      // Refresh user data by querying the /api/user endpoint
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
+      toast({
+        title: "Success",
+        description: "You have successfully logged in.",
+      });
+      
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Invalid OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
-    // Implement Google login
-    console.log("Google login clicked");
+    // Redirect to Google OAuth endpoint
+    window.location.href = "/api/auth/google";
   };
 
   const handleFacebookLogin = () => {
-    // Implement Facebook login
-    console.log("Facebook login clicked");
+    // Redirect to Facebook OAuth endpoint
+    window.location.href = "/api/auth/facebook";
+  };
+  
+  const handleOtpLogin = () => {
+    setOtpMode('email');
   };
 
   if (user) {
@@ -245,23 +381,181 @@ const AuthPage = () => {
               </div>
               
               <div className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full flex items-center justify-center"
-                  onClick={handleGoogleLogin}
-                >
-                  <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google logo" className="w-5 h-5 mr-2" />
-                  Continue with Google
-                </Button>
+                {otpMode === 'inactive' && (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center justify-center"
+                      onClick={handleGoogleLogin}
+                    >
+                      <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google logo" className="w-5 h-5 mr-2" />
+                      Continue with Google
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center justify-center"
+                      onClick={handleFacebookLogin}
+                    >
+                      <img src="https://www.svgrepo.com/show/475657/facebook-color.svg" alt="Facebook logo" className="w-5 h-5 mr-2" />
+                      Continue with Facebook
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center justify-center"
+                      onClick={handleOtpLogin}
+                    >
+                      <Loader2 className={`w-5 h-5 mr-2 ${isLoading ? 'animate-spin' : 'hidden'}`} />
+                      <span>Login with OTP</span>
+                    </Button>
+                  </>
+                )}
                 
-                <Button 
-                  variant="outline" 
-                  className="w-full flex items-center justify-center"
-                  onClick={handleFacebookLogin}
-                >
-                  <i className="fab fa-facebook-f text-blue-600 mr-2"></i>
-                  Continue with Facebook
-                </Button>
+                {otpMode === 'email' && (
+                  <>
+                    <Form {...otpEmailForm}>
+                      <form onSubmit={otpEmailForm.handleSubmit(handleEmailOTP)} className="space-y-4">
+                        <FormField
+                          control={otpEmailForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="Enter your email" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setOtpMode('mobile')}
+                          >
+                            Use Mobile
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            className="flex-1"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Send OTP
+                          </Button>
+                        </div>
+                        
+                        <Button 
+                          type="button" 
+                          variant="link"
+                          className="w-full"
+                          onClick={() => setOtpMode('inactive')}
+                        >
+                          Back to Login Options
+                        </Button>
+                      </form>
+                    </Form>
+                  </>
+                )}
+                
+                {otpMode === 'mobile' && (
+                  <>
+                    <Form {...otpMobileForm}>
+                      <form onSubmit={otpMobileForm.handleSubmit(handleMobileOTP)} className="space-y-4">
+                        <FormField
+                          control={otpMobileForm.control}
+                          name="mobile"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Mobile Number</FormLabel>
+                              <FormControl>
+                                <Input type="tel" placeholder="Enter your 10-digit mobile number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setOtpMode('email')}
+                          >
+                            Use Email
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            className="flex-1"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Send OTP
+                          </Button>
+                        </div>
+                        
+                        <Button 
+                          type="button" 
+                          variant="link"
+                          className="w-full"
+                          onClick={() => setOtpMode('inactive')}
+                        >
+                          Back to Login Options
+                        </Button>
+                      </form>
+                    </Form>
+                  </>
+                )}
+                
+                {otpMode === 'verify' && (
+                  <>
+                    <Form {...otpVerifyForm}>
+                      <form onSubmit={otpVerifyForm.handleSubmit(handleVerifyOTP)} className="space-y-4">
+                        <div className="text-center mb-2">
+                          <p className="text-sm text-gray-500">Enter the OTP sent to</p>
+                          <p className="font-medium">{otpSentTo}</p>
+                        </div>
+                        
+                        <FormField
+                          control={otpVerifyForm.control}
+                          name="otp"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>OTP</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter OTP" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <Button 
+                          type="submit" 
+                          className="w-full"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          Verify & Login
+                        </Button>
+                        
+                        <Button 
+                          type="button" 
+                          variant="link"
+                          className="w-full"
+                          onClick={() => setOtpMode('inactive')}
+                        >
+                          Back to Login Options
+                        </Button>
+                      </form>
+                    </Form>
+                  </>
+                )}
               </div>
             </Tabs>
           </CardContent>
