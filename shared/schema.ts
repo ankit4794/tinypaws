@@ -128,6 +128,18 @@ const reviewSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
   review: String,
+  title: String,
+  images: [String],
+  isVerifiedPurchase: { type: Boolean, default: false },
+  isApproved: { type: Boolean, default: false },
+  isHelpful: { type: Number, default: 0 },
+  isNotHelpful: { type: Number, default: 0 },
+  adminReply: {
+    text: String,
+    date: Date,
+    adminUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
 }, { timestamps: true });
 
 // ==================== CONTACT SUBMISSION SCHEMA ====================
@@ -349,7 +361,20 @@ export const insertReviewSchema = z.object({
   user: z.string(),
   product: z.string(),
   rating: z.number().min(1).max(5),
+  title: z.string().optional().nullable(),
   review: z.string().optional().nullable(),
+  images: z.array(z.string()).optional().default([]),
+  isVerifiedPurchase: z.boolean().default(false),
+  isApproved: z.boolean().default(false),
+  isHelpful: z.number().default(0),
+  isNotHelpful: z.number().default(0),
+  status: z.enum(['pending', 'approved', 'rejected']).default('pending'),
+});
+
+// Admin Reply Schema
+export const insertAdminReplySchema = z.object({
+  text: z.string(),
+  adminUser: z.string(),
 });
 
 // ContactSubmission Schema
@@ -565,11 +590,24 @@ export type OrderItemDocument = mongoose.Document & {
 export type OrderItem = OrderItemDocument;
 
 export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type InsertAdminReply = z.infer<typeof insertAdminReplySchema>;
 export type ReviewDocument = mongoose.Document & {
   user: mongoose.Types.ObjectId;
   product: mongoose.Types.ObjectId;
   rating: number;
+  title?: string | null;
   review?: string | null;
+  images: string[];
+  isVerifiedPurchase: boolean;
+  isApproved: boolean;
+  isHelpful: number;
+  isNotHelpful: number;
+  adminReply?: {
+    text: string;
+    date: Date;
+    adminUser: mongoose.Types.ObjectId;
+  } | null;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -6,3 +6,4 @@ export * from './use-admin-categories';
 export * from './use-admin-contacts';
 export * from './use-admin-pincodes';
 export * from './use-admin-tickets';
+export * from './use-admin-reviews';
