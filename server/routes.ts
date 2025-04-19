@@ -13,6 +13,7 @@ import adminCmsRoutes from "./routes/admin/cms";
 import adminDisclaimersRoutes from "./routes/admin/disclaimers";
 import adminPromotionsRoutes from "./routes/admin/promotions";
 import pincodesRoutes from "./routes/pincodes";
+import uploadRoutes from "./routes/upload";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
@@ -21,8 +22,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Product-related routes
   app.get("/api/products", async (req, res) => {
     try {
-      const { category, subcategory, sort, limit } = req.query;
+      const { category, subcategory, sort, limit, query } = req.query;
       
+      // If search query is provided, use search products
+      if (query && typeof query === 'string' && query.trim() !== '') {
+        const searchResults = await storageProvider.instance.searchProducts(query);
+        return res.json(searchResults);
+      }
+      
+      // Otherwise use regular product listing with filters
       const products = await storageProvider.instance.getProducts({
         category: category as string,
         subcategory: subcategory as string,
@@ -40,7 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const product = await storageProvider.instance.getProductById(parseInt(id));
+      const product = await storageProvider.instance.getProductById(id);
       
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -56,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products/similar/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const similarProducts = await storageProvider.instance.getSimilarProducts(parseInt(id));
+      const similarProducts = await storageProvider.instance.getSimilarProducts(id);
       res.json(similarProducts);
     } catch (error) {
       console.error("Error fetching similar products:", error);
@@ -82,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const cartItems = await storageProvider.instance.getCartItems(userId);
       res.json(cartItems);
     } catch (error) {
@@ -114,10 +122,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const { itemId } = req.params;
       
-      await storageProvider.instance.removeFromCart(userId, parseInt(itemId));
+      await storageProvider.instance.removeFromCart(userId, itemId);
       res.sendStatus(204);
     } catch (error) {
       console.error("Error removing from cart:", error);
@@ -298,6 +306,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount pincode routes
   app.use("/api/pincodes", pincodesRoutes);
+  
+  // Mount upload routes
+  app.use("/api/upload", uploadRoutes);
 
   const httpServer = createServer(app);
 

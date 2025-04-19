@@ -15,6 +15,9 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/lib/protected-route";
 
+// Import admin login page
+import AdminLoginPage from "./pages/admin/login-page";
+
 function Router() {
   return (
     <Switch>
@@ -28,6 +31,10 @@ function Router() {
       <Route path="/contact" component={ContactPage} />
       <Route path="/privacy-policy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
+      
+      {/* Admin routes */}
+      <Route path="/admin/login" component={AdminLoginPage} />
+      
       <Route component={NotFound} />
     </Switch>
   );
