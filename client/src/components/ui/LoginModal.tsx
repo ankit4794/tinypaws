@@ -19,15 +19,14 @@ interface LoginModalProps {
 }
 
 const loginSchema = z.object({
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 const registerSchema = z.object({
   fullName: z.string().min(3, { message: "Full name is required" }),
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
-  mobile: z.string().regex(/^\d{10}$/, { message: "Please enter a valid 10-digit mobile number" }),
+  mobile: z.string().regex(/^\d{10}$/, { message: "Please enter a valid 10-digit mobile number" }).optional(),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
@@ -41,7 +40,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
@@ -50,7 +49,6 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: "",
-      username: "",
       email: "",
       mobile: "",
       password: "",
@@ -66,11 +64,9 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
   };
 
   const onRegisterSubmit = (values: RegisterValues) => {
-    // Extract just the fields needed for registration
-    const { username, password } = values;
-    
+    // Use all the registration fields
     registerMutation.mutate(
-      { username, password },
+      values,
       {
         onSuccess: () => {
           onClose();
@@ -121,13 +117,14 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
             <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
               <FormField
                 control={loginForm.control}
-                name="username"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700 text-sm font-medium">Email or Username</FormLabel>
+                    <FormLabel className="text-gray-700 text-sm font-medium">Email</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Enter your username" 
+                        type="email"
+                        placeholder="Enter your email" 
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
                         {...field} 
                       />
@@ -231,23 +228,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
                 )}
               />
               
-              <FormField
-                control={registerForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-gray-700 text-sm font-medium">Username</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Choose a username" 
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
               
               <FormField
                 control={registerForm.control}
