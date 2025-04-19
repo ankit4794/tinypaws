@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
@@ -72,7 +72,7 @@ export default function AdminLoginPage() {
       console.error("Login error:", error);
       toast({
         title: "Login Failed",
-        description: "Invalid username or password.",
+        description: "Invalid email or password.",
         variant: "destructive",
       });
     }
@@ -88,15 +88,15 @@ export default function AdminLoginPage() {
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                {...form.register('username')}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                {...form.register('email')}
               />
-              {form.formState.errors.username && (
-                <p className="text-sm text-red-500">{form.formState.errors.username.message}</p>
+              {form.formState.errors.email && (
+                <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
