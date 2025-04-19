@@ -17,31 +17,36 @@ export const connectToDatabase = async () => {
       console.log('Attempting to connect to MongoDB with URL (sensitive parts hidden):', 
         mongoUrl.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@'));
 
-      // Try to connect with very basic options to maximize compatibility
-      await mongoose.connect(mongoUrl, {
-        // Minimal options for maximum compatibility
-        tlsAllowInvalidCertificates: true,
-        tlsInsecure: true, // Added for older MongoDB versions
-        ssl: true, // For older MongoDB versions
-        serverSelectionTimeoutMS: 5000 // Fast timeout for quick fallback
-      });
+      // Try to connect with standard options first (MongoDB Atlas recommended)
+      await mongoose.connect(mongoUrl);
 
       console.log('MongoDB connection established successfully');
     } catch (initialError) {
       console.error('Initial MongoDB connection attempt failed, trying alternative options:', initialError.message);
       
       try {
-        // Try a different connection approach if the first one fails
+        // Try a different connection approach if the first one fails - with explicit options
         await mongoose.connect(mongoUrl, {
-          // Alternative SSL settings
-          ssl: true,
-          sslValidate: false,
-          serverSelectionTimeoutMS: 5000
+          // Use the newer unified options format
+          tls: true,
+          serverSelectionTimeoutMS: 10000,
+          socketTimeoutMS: 45000,
+          connectTimeoutMS: 10000
         });
         console.log('MongoDB connection established with alternative options');
       } catch (alternativeError) {
         console.error('Alternative MongoDB connection attempt also failed:', alternativeError.message);
-        throw new Error('Could not connect to MongoDB with any configuration');
+        
+        // Try one more time with minimum options
+        try {
+          await mongoose.connect(mongoUrl, {
+            serverSelectionTimeoutMS: 10000
+          });
+          console.log('MongoDB connection established with minimal options');
+        } catch (finalError) {
+          console.error('All MongoDB connection attempts failed:', finalError.message);
+          throw new Error('Could not connect to MongoDB with any configuration');
+        }
       }
     }
     
