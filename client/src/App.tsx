@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -13,10 +13,15 @@ import PrivacyPage from "@/pages/privacy-policy";
 import TermsPage from "@/pages/terms-page";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import AdminHeader from "@/components/layout/AdminHeader";
+import AdminFooter from "@/components/layout/AdminFooter";
 import { ProtectedRoute } from "@/lib/protected-route";
 
 // Import admin login page
 import AdminLoginPage from "./pages/admin/login-page";
+import HelpDeskPage from "./pages/admin/help-desk";
+import PincodesPage from "./pages/admin/pincodes";
+import ReviewsPage from "./pages/admin/reviews";
 
 function Router() {
   return (
@@ -34,6 +39,9 @@ function Router() {
       
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLoginPage} />
+      <Route path="/admin/help-desk" component={HelpDeskPage} />
+      <Route path="/admin/pincodes" component={PincodesPage} />
+      <Route path="/admin/reviews" component={ReviewsPage} />
       
       <Route component={NotFound} />
     </Switch>
@@ -41,15 +49,20 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  
+  // Check if the current path is an admin route
+  const isAdminRoute = location.startsWith('/admin');
+  
   return (
     <TooltipProvider>
       <Toaster />
       <div className="flex flex-col min-h-screen">
-        <Header />
+        {isAdminRoute ? <AdminHeader /> : <Header />}
         <main className="flex-grow">
           <Router />
         </main>
-        <Footer />
+        {isAdminRoute ? <AdminFooter /> : <Footer />}
       </div>
     </TooltipProvider>
   );

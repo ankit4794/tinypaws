@@ -5,6 +5,7 @@ import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocation } from 'wouter';
+import { queryClient } from '@/lib/queryClient';
 
 import {
   Card,
@@ -29,9 +30,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
   const { toast } = useToast();
-  const { user, loginMutation } = useAuth();
+  const { user } = useAuth();
   const [, navigate] = useLocation();
   const [isAdminLoginFailed, setIsAdminLoginFailed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -49,9 +51,27 @@ export default function AdminLoginPage() {
   }, [user, navigate]);
 
   const onSubmit = async (data: LoginFormValues) => {
+    setIsLoading(true);
     try {
-      const user = await loginMutation.mutateAsync(data);
+      // Directly use the admin login endpoint
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include', // important for session cookies
+      });
       
+      if (!response.ok) {
+        // Parse the error response
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
+      }
+      
+      const user = await response.json();
+      
+      // Update the auth context with the user data
       if (user.role !== 'ADMIN') {
         setIsAdminLoginFailed(true);
         toast({
@@ -59,8 +79,12 @@ export default function AdminLoginPage() {
           description: "You don't have admin privileges.",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
+      
+      // Manually update the auth context
+      queryClient.setQueryData(["/api/user"], user);
       
       toast({
         title: "Login Successful",
@@ -72,9 +96,10 @@ export default function AdminLoginPage() {
       console.error("Login error:", error);
       toast({
         title: "Login Failed",
-        description: "Invalid email or password.",
+        description: error instanceof Error ? error.message : "Invalid email or password.",
         variant: "destructive",
       });
+      setIsLoading(false);
     }
   };
 
@@ -124,9 +149,9 @@ export default function AdminLoginPage() {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loginMutation.isPending}
+              disabled={isLoading}
             >
-              {loginMutation.isPending ? (
+              {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Logging in...
