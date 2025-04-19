@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { ChevronDown, LogOut, Menu, User, X } from "lucide-react";
@@ -13,11 +13,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function AdminHeader() {
-  const { user, logoutMutation } = useAuth();
+  const { adminUser, adminLogoutMutation } = useAdminAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
-    logoutMutation.mutate();
+    adminLogoutMutation.mutate();
   };
 
   return (
@@ -94,11 +94,11 @@ export default function AdminHeader() {
             </Link>
 
             {/* User menu */}
-            {user ? (
+            {adminUser ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 text-gray-200">
-                    <User className="mr-2 h-4 w-4" /> {user.email}
+                    <User className="mr-2 h-4 w-4" /> {adminUser.email}
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -106,10 +106,10 @@ export default function AdminHeader() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user.fullName || "Administrator"}
+                        {adminUser.fullName || "Administrator"}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
+                        {adminUser.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -193,7 +193,7 @@ export default function AdminHeader() {
               >
                 Help Desk
               </Link>
-              {user ? (
+              {adminUser ? (
                 <Button
                   variant="ghost"
                   className="justify-start text-gray-200 hover:text-white p-0"

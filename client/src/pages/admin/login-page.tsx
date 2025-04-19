@@ -3,9 +3,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useLocation } from 'wouter';
-import { queryClient } from '@/lib/queryClient';
 
 import {
   Card,
@@ -30,10 +29,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { adminUser, adminLoginMutation } = useAdminAuth();
   const [, navigate] = useLocation();
   const [isAdminLoginFailed, setIsAdminLoginFailed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = adminLoginMutation.isPending;
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -45,62 +44,42 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     // Redirect to admin dashboard if already logged in as admin
-    if (user && user.role === 'ADMIN') {
+    if (adminUser) {
       navigate('/admin');
     }
-  }, [user, navigate]);
+  }, [adminUser, navigate]);
 
   const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    try {
-      // Directly use the admin login endpoint
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-        credentials: 'include', // important for session cookies
-      });
-      
-      if (!response.ok) {
-        // Parse the error response
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Login failed');
-      }
-      
-      const user = await response.json();
-      
-      // Update the auth context with the user data
-      if (user.role !== 'ADMIN') {
-        setIsAdminLoginFailed(true);
+    setIsAdminLoginFailed(false);
+    
+    adminLoginMutation.mutate(data, {
+      onSuccess: (user) => {
+        if (user.role !== 'ADMIN') {
+          setIsAdminLoginFailed(true);
+          toast({
+            title: "Access Denied",
+            description: "You don't have admin privileges.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         toast({
-          title: "Access Denied",
-          description: "You don't have admin privileges.",
+          title: "Login Successful",
+          description: "Welcome to the admin dashboard.",
+        });
+        
+        navigate('/admin');
+      },
+      onError: (error) => {
+        console.error("Login error:", error);
+        toast({
+          title: "Login Failed",
+          description: error.message || "Invalid email or password.",
           variant: "destructive",
         });
-        setIsLoading(false);
-        return;
       }
-      
-      // Manually update the auth context
-      queryClient.setQueryData(["/api/user"], user);
-      
-      toast({
-        title: "Login Successful",
-        description: "Welcome to the admin dashboard.",
-      });
-      
-      navigate('/admin');
-    } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: error instanceof Error ? error.message : "Invalid email or password.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-    }
+    });
   };
 
   return (

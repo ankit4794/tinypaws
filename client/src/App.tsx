@@ -16,6 +16,9 @@ import Footer from "@/components/layout/Footer";
 import AdminHeader from "@/components/layout/AdminHeader";
 import AdminFooter from "@/components/layout/AdminFooter";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { AdminProtectedRoute } from "@/lib/admin-protected-route";
+import { AuthProvider } from "@/hooks/use-auth";
+import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 
 // Import admin pages
 import AdminLoginPage from "./pages/admin/login-page";
@@ -23,6 +26,9 @@ import AdminDashboard from "./pages/admin/index";
 import HelpDeskPage from "./pages/admin/help-desk";
 import PincodesPage from "./pages/admin/pincodes";
 import ReviewsPage from "./pages/admin/reviews";
+import ProductsManagement from "./pages/admin/products";
+import OrdersManagement from "./pages/admin/orders";
+import CustomersManagement from "./pages/admin/customers";
 
 function Router() {
   return (
@@ -39,11 +45,14 @@ function Router() {
       <Route path="/terms" component={TermsPage} />
       
       {/* Admin routes */}
-      <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/login" component={AdminLoginPage} />
-      <Route path="/admin/help-desk" component={HelpDeskPage} />
-      <Route path="/admin/pincodes" component={PincodesPage} />
-      <Route path="/admin/reviews" component={ReviewsPage} />
+      <AdminProtectedRoute path="/admin" component={AdminDashboard} />
+      <AdminProtectedRoute path="/admin/help-desk" component={HelpDeskPage} />
+      <AdminProtectedRoute path="/admin/pincodes" component={PincodesPage} />
+      <AdminProtectedRoute path="/admin/reviews" component={ReviewsPage} />
+      <AdminProtectedRoute path="/admin/products" component={ProductsManagement} />
+      <AdminProtectedRoute path="/admin/orders" component={OrdersManagement} />
+      <AdminProtectedRoute path="/admin/customers" component={CustomersManagement} />
       
       <Route component={NotFound} />
     </Switch>
@@ -57,16 +66,20 @@ function App() {
   const isAdminRoute = location.startsWith('/admin');
   
   return (
-    <TooltipProvider>
-      <Toaster />
-      <div className="flex flex-col min-h-screen">
-        {isAdminRoute ? <AdminHeader /> : <Header />}
-        <main className="flex-grow">
-          <Router />
-        </main>
-        {isAdminRoute ? <AdminFooter /> : <Footer />}
-      </div>
-    </TooltipProvider>
+    <AuthProvider>
+      <AdminAuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <div className="flex flex-col min-h-screen">
+            {isAdminRoute ? <AdminHeader /> : <Header />}
+            <main className="flex-grow">
+              <Router />
+            </main>
+            {isAdminRoute ? <AdminFooter /> : <Footer />}
+          </div>
+        </TooltipProvider>
+      </AdminAuthProvider>
+    </AuthProvider>
   );
 }
 
