@@ -1,61 +1,69 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Draggable } from '@/components/admin/widgets/drag-context';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useDragContext } from '@/components/admin/widgets/drag-context';
 import { GripVertical, X } from 'lucide-react';
 
 export interface WidgetProps {
   id: string;
   title: string;
-  index: number;
-  onRemove?: (id: string) => void;
-  isRemovable?: boolean;
-  icon?: React.ReactNode;
   children: React.ReactNode;
+  icon?: React.ReactNode;
+  className?: string;
+  onRemove: (id: string) => void;
+  index: number;
 }
 
 const Widget: React.FC<WidgetProps> = ({
   id,
   title,
-  index,
-  onRemove,
-  isRemovable = true,
+  children,
   icon,
-  children
+  className = '',
+  onRemove,
+  index
 }) => {
+  const { setDraggedWidgetId } = useDragContext();
+
+  const handleDragStart = (e: React.DragEvent) => {
+    setDraggedWidgetId(id);
+    // Required for Firefox
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedWidgetId(null);
+  };
+
   return (
-    <Draggable id={id} index={index}>
-      {(provided) => (
-        <div
-          className="mb-4"
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-        >
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="flex items-center gap-2">
-                <div {...provided.dragHandleProps} className="cursor-grab">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  {icon && <span className="text-muted-foreground">{icon}</span>}
-                  {title}
-                </CardTitle>
-              </div>
-              {isRemovable && onRemove && (
-                <button
-                  onClick={() => onRemove(id)}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Remove widget"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </CardHeader>
-            <CardContent>{children}</CardContent>
-          </Card>
+    <Card className={`mb-6 ${className}`} draggable={true} data-index={index} data-id={id}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div className="flex items-center">
+          <div 
+            className="cursor-grab mr-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+          <CardTitle className="text-sm font-medium flex items-center">
+            {icon && <span className="mr-2">{icon}</span>}
+            {title}
+          </CardTitle>
         </div>
-      )}
-    </Draggable>
+        <button 
+          onClick={() => onRemove(id)}
+          className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors inline-flex items-center justify-center"
+          title="Remove widget"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </CardHeader>
+      <CardContent>
+        {children}
+      </CardContent>
+    </Card>
   );
 };
 

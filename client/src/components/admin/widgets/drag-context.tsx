@@ -1,106 +1,26 @@
-import React, { createContext, useState, useEffect } from 'react';
-
-// Simulate react-beautiful-dnd behavior for this example
-// In a real implementation, you would use react-beautiful-dnd or @dnd-kit/core
-
-export interface DraggableProvided {
-  innerRef: React.RefObject<HTMLDivElement>;
-  draggableProps: React.HTMLAttributes<HTMLDivElement>;
-  dragHandleProps: React.HTMLAttributes<HTMLDivElement>;
-}
-
-export interface DroppableProvided {
-  innerRef: React.RefObject<HTMLDivElement>;
-  droppableProps: React.HTMLAttributes<HTMLDivElement>;
-}
+import React, { createContext, useContext, useState } from 'react';
 
 interface DragContextType {
-  items: string[];
-  reorderItems: (startIndex: number, endIndex: number) => void;
+  draggedWidgetId: string | null;
+  setDraggedWidgetId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-export const DragContext = createContext<DragContextType>({
-  items: [],
-  reorderItems: () => {},
-});
+const DragContext = createContext<DragContextType | undefined>(undefined);
 
-interface DragProviderProps {
-  initialItems: string[];
-  onReorder?: (items: string[]) => void;
-  children: React.ReactNode;
-}
-
-export const DragProvider: React.FC<DragProviderProps> = ({
-  initialItems,
-  onReorder,
-  children,
-}) => {
-  const [items, setItems] = useState<string[]>(initialItems);
-
-  useEffect(() => {
-    setItems(initialItems);
-  }, [initialItems]);
-
-  const reorderItems = (startIndex: number, endIndex: number) => {
-    const result = Array.from(items);
-    const [removed] = result.splice(startIndex, 1);
-    result.splice(endIndex, 0, removed);
-
-    setItems(result);
-    if (onReorder) {
-      onReorder(result);
-    }
-  };
+export const DragProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
 
   return (
-    <DragContext.Provider value={{ items, reorderItems }}>
+    <DragContext.Provider value={{ draggedWidgetId, setDraggedWidgetId }}>
       {children}
     </DragContext.Provider>
   );
 };
 
-interface DraggableProps {
-  id: string;
-  index: number;
-  children: (provided: DraggableProvided) => React.ReactNode;
-}
-
-export const Draggable: React.FC<DraggableProps> = ({ children, id, index }) => {
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  const provided: DraggableProvided = {
-    innerRef: ref,
-    draggableProps: {
-      style: {
-        position: 'relative',
-      },
-    },
-    dragHandleProps: {
-      style: {
-        cursor: 'grab',
-      },
-    },
-  };
-
-  return <>{children(provided)}</>;
-};
-
-interface DroppableProps {
-  id: string;
-  children: (provided: DroppableProvided) => React.ReactNode;
-}
-
-export const Droppable: React.FC<DroppableProps> = ({ children, id }) => {
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  const provided: DroppableProvided = {
-    innerRef: ref,
-    droppableProps: {
-      style: {
-        minHeight: '100px',
-      },
-    },
-  };
-
-  return <>{children(provided)}</>;
+export const useDragContext = () => {
+  const context = useContext(DragContext);
+  if (context === undefined) {
+    throw new Error('useDragContext must be used within a DragProvider');
+  }
+  return context;
 };

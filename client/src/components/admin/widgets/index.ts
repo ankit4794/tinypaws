@@ -3,6 +3,9 @@ export { default as WidgetsContainer } from './WidgetsContainer';
 export { default as StatWidget } from './StatWidget';
 export { default as RecentOrdersWidget } from './RecentOrdersWidget';
 export { default as ProductsListWidget } from './ProductsListWidget';
+export { default as WidgetSelector } from './WidgetSelector';
+export { default as WidgetFactory } from './WidgetFactory';
+export { default as CustomizableDashboard } from './CustomizableDashboard';
 
 // Export the widget types
 export enum WidgetType {
