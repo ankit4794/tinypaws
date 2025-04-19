@@ -1,19 +1,19 @@
 import { useEffect } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { user, isLoading } = useAuth();
+  const { adminUser, isLoading } = useAdminAuth();
   const [, navigate] = useLocation();
 
   useEffect(() => {
     // Redirect to login page if not logged in as admin
-    if (!isLoading && (!user || user.role !== 'ADMIN')) {
+    if (!isLoading && (!adminUser || adminUser.role !== 'ADMIN')) {
       navigate('/admin/login');
     }
-  }, [user, isLoading, navigate]);
+  }, [adminUser, isLoading, navigate]);
 
   if (isLoading) {
     return (
