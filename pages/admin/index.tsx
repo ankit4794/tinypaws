@@ -1,131 +1,131 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import React from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
+import { useAdminDashboard } from '@/hooks/admin';
+import { Loader2, Package, ShoppingBag, Users } from 'lucide-react';
+import { useRouter } from 'next/router';
 
-export default function AdminDashboard() {
-  const { user, isLoading } = useAuth();
+export default function AdminDashboardPage() {
+  const { user, isLoading: isUserLoading } = useAuth();
   const router = useRouter();
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalOrders: 0,
-    totalUsers: 0,
-    recentOrders: []
-  });
-
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'ADMIN')) {
+  const { data: dashboardData, isLoading, error } = useAdminDashboard();
+  
+  // Redirect if not authenticated
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
       router.push('/admin/login');
     }
-  }, [user, isLoading, router]);
+  }, [user, isUserLoading, router]);
 
-  useEffect(() => {
-    // Fetch dashboard stats
-    const fetchStats = async () => {
-      try {
-        const response = await fetch('/api/admin/dashboard');
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      }
-    };
-
-    if (user && user.role === 'ADMIN') {
-      fetchStats();
-    }
-  }, [user]);
-
-  if (isLoading) {
-    return <div>Loading...</div>;
+  // Loading state
+  if (isUserLoading || isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-border" />
+        </div>
+      </AdminLayout>
+    );
   }
 
-  if (!user || user.role !== 'ADMIN') {
-    return null;
+  // Error state
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <h1 className="text-xl font-bold text-destructive">Error loading dashboard</h1>
+          <p className="text-muted-foreground">{error.message}</p>
+        </div>
+      </AdminLayout>
+    );
   }
 
   return (
     <AdminLayout>
       <div className="p-6">
-        <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
-            <CardHeader>
-              <CardTitle>Total Products</CardTitle>
-              <CardDescription>Number of products in inventory</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{stats.totalProducts}</p>
+              <div className="text-2xl font-bold">{dashboardData?.totalProducts || 0}</div>
+              <p className="text-xs text-muted-foreground">Across all categories</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader>
-              <CardTitle>Total Orders</CardTitle>
-              <CardDescription>Number of orders placed</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{stats.totalOrders}</p>
+              <div className="text-2xl font-bold">{dashboardData?.totalOrders || 0}</div>
+              <p className="text-xs text-muted-foreground">Across all time</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader>
-              <CardTitle>Registered Users</CardTitle>
-              <CardDescription>Number of registered users</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{stats.totalUsers}</p>
+              <div className="text-2xl font-bold">{dashboardData?.totalUsers || 0}</div>
+              <p className="text-xs text-muted-foreground">Registered users</p>
             </CardContent>
           </Card>
         </div>
         
-        <Card>
+        {/* Recent orders */}
+        <Card className="mb-8">
           <CardHeader>
             <CardTitle>Recent Orders</CardTitle>
-            <CardDescription>Latest orders placed on the website</CardDescription>
+            <CardDescription>
+              The most recent orders placed on the store
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {stats.recentOrders.length === 0 ? (
-              <p className="text-muted-foreground">No recent orders</p>
-            ) : (
+            {dashboardData?.recentOrders?.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="py-3 px-2 text-left">Order ID</th>
-                      <th className="py-3 px-2 text-left">User</th>
-                      <th className="py-3 px-2 text-left">Date</th>
-                      <th className="py-3 px-2 text-left">Amount</th>
-                      <th className="py-3 px-2 text-left">Status</th>
+                    <tr>
+                      <th className="text-left font-medium p-2">Order ID</th>
+                      <th className="text-left font-medium p-2">Date</th>
+                      <th className="text-left font-medium p-2">Status</th>
+                      <th className="text-left font-medium p-2">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.recentOrders.map((order: any) => (
-                      <tr key={order.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-2">{order.id}</td>
-                        <td className="py-3 px-2">{order.userName}</td>
-                        <td className="py-3 px-2">{new Date(order.createdAt).toLocaleDateString()}</td>
-                        <td className="py-3 px-2">₹{order.total.toFixed(2)}</td>
-                        <td className="py-3 px-2">
-                          <span className={`inline-block py-1 px-2 rounded-full text-xs font-medium 
-                            ${order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
-                              order.status === 'PROCESSING' ? 'bg-blue-100 text-blue-800' : 
-                              order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
-                              'bg-yellow-100 text-yellow-800'
+                    {dashboardData.recentOrders.map((order) => (
+                      <tr key={order.id} className="border-t">
+                        <td className="p-2">{order.id}</td>
+                        <td className="p-2">{new Date(order.createdAt).toLocaleDateString()}</td>
+                        <td className="p-2">
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs 
+                            ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                              order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                              order.status === 'shipped' ? 'bg-purple-100 text-purple-800' :
+                              order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
                             }`}>
-                            {order.status}
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </span>
                         </td>
+                        <td className="p-2">₹{order.total.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            ) : (
+              <p className="text-muted-foreground">No recent orders</p>
             )}
           </CardContent>
         </Card>
