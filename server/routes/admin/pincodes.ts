@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { storage } from '../../storage';
-import { insertServiceablePincodeSchema } from '@/shared/schema';
-import { withAdminAuth } from '../../middleware/admin-auth';
+import { insertServiceablePincodeSchema } from '../../../shared/schema';
+import { withAdminAuth } from '../../../middleware/admin-auth';
 
 const router = Router();
 

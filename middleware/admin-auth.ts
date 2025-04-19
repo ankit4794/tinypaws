@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { UserRole } from '@/shared/schema';
+import { UserRole } from '../shared/schema';
 
 // Extend NextApiRequest to include session
 declare module 'next' {

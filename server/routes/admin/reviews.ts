@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { storage } from '../../storage';
-import { insertAdminReplySchema } from '@/shared/schema';
-import { withAdminAuth } from '../../middleware/admin-auth';
+import { insertAdminReplySchema } from '../../../shared/schema';
+import { withAdminAuth } from '../../../middleware/admin-auth';
 
 const router = Router();
 

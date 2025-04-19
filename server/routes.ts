@@ -3,6 +3,10 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { z } from "zod";
+import reviewsRoutes from "./routes/reviews";
+import adminReviewsRoutes from "./routes/admin/reviews";
+import adminPincodesRoutes from "./routes/admin/pincodes";
+import pincodesRoutes from "./routes/pincodes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
@@ -267,36 +271,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delivery check
-  app.get("/api/check-delivery/:pincode", async (req, res) => {
-    try {
-      const { pincode } = req.params;
-      
-      if (!pincode || !/^\d{6}$/.test(pincode)) {
-        return res.status(400).json({ message: "Invalid pincode" });
-      }
-      
-      // Simple logic for demo: even last digit means deliverable with different charges
-      const lastDigit = parseInt(pincode.slice(-1));
-      const isDeliverable = lastDigit % 2 === 0;
-      const deliveryCharge = isDeliverable ? (lastDigit % 4 === 0 ? 0 : 70) : null;
-      const estimatedDays = isDeliverable ? (lastDigit % 4 === 0 ? "1-2" : "3-5") : null;
-      
-      res.json({
-        isDeliverable,
-        deliveryCharge,
-        estimatedDays,
-        message: isDeliverable 
-          ? deliveryCharge === 0 
-            ? "Free delivery available to your location!" 
-            : `Delivery available with a charge of ₹${deliveryCharge}`
-          : "Sorry, we don't deliver to your area yet"
-      });
-    } catch (error) {
-      console.error("Error checking delivery:", error);
-      res.status(500).json({ message: "Failed to check delivery availability" });
-    }
-  });
+  // Mount review routes
+  app.use("/api/reviews", reviewsRoutes);
+  
+  // Mount admin routes
+  app.use("/api/admin/reviews", adminReviewsRoutes);
+  app.use("/api/admin/pincodes", adminPincodesRoutes);
+  
+  // Mount pincode routes
+  app.use("/api/pincodes", pincodesRoutes);
 
   const httpServer = createServer(app);
 

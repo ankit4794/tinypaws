@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { storage } from '../storage';
-import { insertReviewSchema } from '@/shared/schema';
+import { insertReviewSchema } from '../../shared/schema';
 
 const router = Router();
 
