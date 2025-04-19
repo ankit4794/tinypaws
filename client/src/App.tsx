@@ -29,6 +29,7 @@ import ReviewsPage from "./pages/admin/reviews";
 import ProductsManagement from "./pages/admin/products";
 import OrdersManagement from "./pages/admin/orders";
 import CustomersManagement from "./pages/admin/customers";
+import CategoriesManagement from "./pages/admin/categories";
 
 function Router() {
   return (
@@ -53,6 +54,7 @@ function Router() {
       <AdminProtectedRoute path="/admin/products" component={ProductsManagement} />
       <AdminProtectedRoute path="/admin/orders" component={OrdersManagement} />
       <AdminProtectedRoute path="/admin/customers" component={CustomersManagement} />
+      <AdminProtectedRoute path="/admin/categories" component={CategoriesManagement} />
       
       <Route component={NotFound} />
     </Switch>
