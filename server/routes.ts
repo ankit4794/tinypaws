@@ -4,8 +4,14 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { z } from "zod";
 import reviewsRoutes from "./routes/reviews";
+import cmsRoutes from "./routes/cms";
+import disclaimersRoutes from "./routes/disclaimers";
+import promotionsRoutes from "./routes/promotions";
 import adminReviewsRoutes from "./routes/admin/reviews";
 import adminPincodesRoutes from "./routes/admin/pincodes";
+import adminCmsRoutes from "./routes/admin/cms";
+import adminDisclaimersRoutes from "./routes/admin/disclaimers";
+import adminPromotionsRoutes from "./routes/admin/promotions";
 import pincodesRoutes from "./routes/pincodes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -274,9 +280,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount review routes
   app.use("/api/reviews", reviewsRoutes);
   
+  // Mount CMS routes
+  app.use("/api/cms", cmsRoutes);
+  
+  // Mount disclaimer routes
+  app.use("/api/disclaimers", disclaimersRoutes);
+  
+  // Mount promotion routes
+  app.use("/api/promotions", promotionsRoutes);
+  
   // Mount admin routes
   app.use("/api/admin/reviews", adminReviewsRoutes);
   app.use("/api/admin/pincodes", adminPincodesRoutes);
+  app.use("/api/admin/cms", adminCmsRoutes);
+  app.use("/api/admin/disclaimers", adminDisclaimersRoutes);
+  app.use("/api/admin/promotions", adminPromotionsRoutes);
   
   // Mount pincode routes
   app.use("/api/pincodes", pincodesRoutes);
