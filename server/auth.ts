@@ -193,18 +193,17 @@ export function setupAuth(app: Express) {
       async (accessToken, refreshToken, profile, done) => {
         try {
           // Check if user already exists
-          let user = await storageProvider.instance.getUserByUsername(profile.emails?.[0]?.value || '');
+          const email = profile.emails?.[0]?.value || '';
+          if (!email) {
+            return done(new Error('No email found in Google profile'));
+          }
+          
+          let user = await storageProvider.instance.getUserByEmail(email);
           
           // If user doesn't exist, create a new one
           if (!user) {
-            const email = profile.emails?.[0]?.value;
-            if (!email) {
-              return done(new Error('No email found in Google profile'));
-            }
-            
             const randomPass = randomBytes(16).toString('hex');
             user = await storageProvider.instance.createUser({
-              username: email,
               email: email,
               password: await hashPassword(randomPass),
               fullName: profile.displayName || null,
@@ -244,18 +243,17 @@ export function setupAuth(app: Express) {
       async (accessToken, refreshToken, profile, done) => {
         try {
           // Check if user already exists
-          let user = await storageProvider.instance.getUserByUsername(profile.emails?.[0]?.value || '');
+          const email = profile.emails?.[0]?.value || '';
+          if (!email) {
+            return done(new Error('No email found in Facebook profile'));
+          }
+          
+          let user = await storageProvider.instance.getUserByEmail(email);
           
           // If user doesn't exist, create a new one
           if (!user) {
-            const email = profile.emails?.[0]?.value;
-            if (!email) {
-              return done(new Error('No email found in Facebook profile'));
-            }
-            
             const randomPass = randomBytes(16).toString('hex');
             user = await storageProvider.instance.createUser({
-              username: email,
               email: email,
               password: await hashPassword(randomPass),
               fullName: profile.displayName || null,
@@ -315,9 +313,8 @@ export function setupAuth(app: Express) {
         }
       }
 
-      // Create new user (using email as username for backward compatibility)
+      // Create new user
       const user = await storageProvider.instance.createUser({
-        username: email, // Use email as username for backward compatibility
         email,
         password: await hashPassword(password),
         fullName: fullName || null,
@@ -349,22 +346,21 @@ export function setupAuth(app: Express) {
         return res.status(403).json({ error: 'Unauthorized' });
       }
 
-      const { username, email, password, fullName } = req.body;
+      const { email, password, fullName } = req.body;
 
       // Validate input
-      if (!username || !email || !password) {
+      if (!email || !password) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
       // Check if user already exists
-      const existingUser = await storageProvider.instance.getUserByUsername(username);
+      const existingUser = await storageProvider.instance.getUserByEmail(email);
       if (existingUser) {
-        return res.status(400).json({ error: 'Username already exists' });
+        return res.status(400).json({ error: 'Email already exists' });
       }
 
       // Create new admin user
       const user = await storageProvider.instance.createUser({
-        username,
         email,
         password: await hashPassword(password),
         fullName: fullName || null,
@@ -633,17 +629,11 @@ export function setupAuth(app: Express) {
       
       // Create new user if not exists
       if (!user) {
-        // Generate a random username based on contact method
-        const username = contactType === 'email' 
-          ? contactMethod.split('@')[0] + '_' + Math.floor(1000 + Math.random() * 9000).toString()
-          : 'user_' + Math.floor(10000 + Math.random() * 90000).toString();
-        
         // Generate a random password
         const randomPass = randomBytes(16).toString('hex');
         
         // Create user data
         const userData: any = {
-          username,
           password: await hashPassword(randomPass),
           role: UserRole.USER,
           fullName: fullName || null,
@@ -795,13 +785,12 @@ export function setupAuth(app: Express) {
 async function createInitialAdminIfNeeded() {
   try {
     // Check if any admin exists
-    const existingAdmin = await storageProvider.instance.getUserByUsername('admin');
+    const existingAdmin = await storageProvider.instance.getUserByEmail('admin@tinypaws.com');
     
     if (!existingAdmin) {
       console.log('Creating initial admin user...');
       
       await storageProvider.instance.createUser({
-        username: 'admin',
         email: 'admin@tinypaws.com',
         password: await hashPassword('admin123'),
         fullName: 'System Administrator',
