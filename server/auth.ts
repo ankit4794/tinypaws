@@ -158,26 +158,27 @@ export function setupAuth(app: Express) {
 
   // Local authentication strategy
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        // Try to find user by email first
-        let user = await storageProvider.instance.getUserByEmail(username);
-        
-        // If not found, try by mobile
-        if (!user) {
-          user = await storageProvider.instance.getUserByMobile(username);
+    new LocalStrategy(
+      {
+        usernameField: 'email',
+        passwordField: 'password'
+      },
+      async (email, password, done) => {
+        try {
+          // Try to find user by email 
+          const user = await storageProvider.instance.getUserByEmail(email);
+          
+          // If not found or password doesn't match, authentication fails
+          if (!user || !(await comparePasswords(password, user.password))) {
+            return done(null, false);
+          }
+          
+          return done(null, user);
+        } catch (error) {
+          return done(error);
         }
-        
-        // If still not found or password doesn't match, authentication fails
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        }
-        
-        return done(null, user);
-      } catch (error) {
-        return done(error);
       }
-    }),
+    ),
   );
 
   // Google authentication strategy
@@ -389,7 +390,7 @@ export function setupAuth(app: Express) {
       if (err) return next(err);
       
       if (!user) {
-        return res.status(401).json({ error: 'Invalid username or password' });
+        return res.status(401).json({ error: 'Invalid email or password' });
       }
       
       req.login(user, (err) => {
@@ -408,7 +409,7 @@ export function setupAuth(app: Express) {
       if (err) return next(err);
       
       if (!user) {
-        return res.status(401).json({ error: 'Invalid username or password' });
+        return res.status(401).json({ error: 'Invalid email or password' });
       }
       
       // Check if user has admin role
