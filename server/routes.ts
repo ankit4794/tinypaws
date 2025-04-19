@@ -105,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const { productId, quantity } = req.body;
       
       const updatedCart = await storageProvider.instance.addToCart(userId, productId, quantity);
@@ -140,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const wishlistItems = await storageProvider.instance.getWishlistItems(userId);
       res.json(wishlistItems);
     } catch (error) {
@@ -155,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const { productId } = req.body;
       
       const updatedWishlist = await storageProvider.instance.addToWishlist(userId, productId);
@@ -172,10 +172,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const { productId } = req.params;
       
-      await storageProvider.instance.removeFromWishlist(userId, parseInt(productId));
+      await storageProvider.instance.removeFromWishlist(userId, productId);
       res.sendStatus(204);
     } catch (error) {
       console.error("Error removing from wishlist:", error);
@@ -190,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const { items, shippingAddress, paymentMethod } = req.body;
       
       const order = await storageProvider.instance.createOrder(userId, items, shippingAddress, paymentMethod);
@@ -207,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const orders = await storageProvider.instance.getUserOrders(userId);
       res.json(orders);
     } catch (error) {
@@ -222,10 +222,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id;
       const { orderId } = req.params;
       
-      const order = await storageProvider.instance.getOrderDetails(userId, parseInt(orderId));
+      const order = await storageProvider.instance.getOrderDetails(userId, orderId);
       
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
