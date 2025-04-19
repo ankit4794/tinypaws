@@ -537,13 +537,16 @@ export class MongoDBStorage implements IStorage {
   // Cart-related methods
   async getCartItems(userId: string): Promise<CartItem[]> {
     try {
-      return await prisma.cartItem.findMany({
-        where: { userId },
-        include: {
-          product: true
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return [];
+      }
+      
+      const cartItems = await CartItem.find({ user: userId })
+        .populate('product')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return cartItems;
     } catch (error) {
       console.error('Error fetching cart items:', error);
       return [];
@@ -557,38 +560,46 @@ export class MongoDBStorage implements IStorage {
     options?: { color?: string, size?: string }
   ): Promise<CartItem> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(productId)) {
+        throw new Error('Invalid user ID or product ID');
+      }
+      
       // Check if item already exists in cart
-      const existingItem = await prisma.cartItem.findFirst({
-        where: {
-          userId,
-          productId,
-          selectedColor: options?.color,
-          selectedSize: options?.size
-        }
+      const existingItem = await CartItem.findOne({
+        user: userId,
+        product: productId,
+        selectedColor: options?.color,
+        selectedSize: options?.size
       });
       
       if (existingItem) {
         // Update quantity if item exists
-        return await prisma.cartItem.update({
-          where: { id: existingItem.id },
-          data: {
-            quantity: existingItem.quantity + quantity,
-            updatedAt: new Date()
-          },
-          include: { product: true }
-        });
+        existingItem.quantity += quantity;
+        existingItem.updatedAt = new Date();
+        await existingItem.save();
+        
+        const populatedItem = await CartItem.findById(existingItem._id)
+          .populate('product')
+          .lean();
+          
+        return populatedItem!;
       } else {
         // Create new cart item
-        return await prisma.cartItem.create({
-          data: {
-            userId,
-            productId,
-            quantity,
-            selectedColor: options?.color,
-            selectedSize: options?.size
-          },
-          include: { product: true }
+        const newCartItem = new CartItem({
+          user: userId,
+          product: productId,
+          quantity,
+          selectedColor: options?.color,
+          selectedSize: options?.size
         });
+        
+        await newCartItem.save();
+        
+        const populatedItem = await CartItem.findById(newCartItem._id)
+          .populate('product')
+          .lean();
+          
+        return populatedItem!;
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -598,24 +609,29 @@ export class MongoDBStorage implements IStorage {
 
   async updateCartItemQuantity(userId: string, itemId: string, quantity: number): Promise<CartItem | undefined> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(itemId)) {
+        return undefined;
+      }
+      
       // Verify the cart item belongs to the user
-      const cartItem = await prisma.cartItem.findFirst({
-        where: {
-          id: itemId,
-          userId
-        }
+      const cartItem = await CartItem.findOne({
+        _id: itemId,
+        user: userId
       });
       
       if (!cartItem) return undefined;
       
-      return await prisma.cartItem.update({
-        where: { id: itemId },
-        data: {
-          quantity,
-          updatedAt: new Date()
-        },
-        include: { product: true }
-      });
+      // Update quantity
+      cartItem.quantity = quantity;
+      cartItem.updatedAt = new Date();
+      
+      await cartItem.save();
+      
+      const updatedItem = await CartItem.findById(itemId)
+        .populate('product')
+        .lean();
+        
+      return updatedItem || undefined;
     } catch (error) {
       console.error('Error updating cart item quantity:', error);
       return undefined;
@@ -624,19 +640,20 @@ export class MongoDBStorage implements IStorage {
 
   async removeFromCart(userId: string, itemId: string): Promise<void> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(itemId)) {
+        return;
+      }
+      
       // Verify the cart item belongs to the user
-      const cartItem = await prisma.cartItem.findFirst({
-        where: {
-          id: itemId,
-          userId
-        }
+      const cartItem = await CartItem.findOne({
+        _id: itemId,
+        user: userId
       });
       
       if (!cartItem) return;
       
-      await prisma.cartItem.delete({
-        where: { id: itemId }
-      });
+      // Delete the cart item
+      await CartItem.deleteOne({ _id: itemId });
     } catch (error) {
       console.error('Error removing from cart:', error);
     }
@@ -644,9 +661,12 @@ export class MongoDBStorage implements IStorage {
 
   async clearCart(userId: string): Promise<void> {
     try {
-      await prisma.cartItem.deleteMany({
-        where: { userId }
-      });
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return;
+      }
+      
+      // Delete all cart items for this user
+      await CartItem.deleteMany({ user: userId });
     } catch (error) {
       console.error('Error clearing cart:', error);
     }
@@ -655,13 +675,16 @@ export class MongoDBStorage implements IStorage {
   // Wishlist-related methods
   async getWishlistItems(userId: string): Promise<WishlistItem[]> {
     try {
-      return await prisma.wishlistItem.findMany({
-        where: { userId },
-        include: {
-          product: true
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return [];
+      }
+      
+      const wishlistItems = await WishlistItem.find({ user: userId })
+        .populate('product')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return wishlistItems;
     } catch (error) {
       console.error('Error fetching wishlist items:', error);
       return [];
@@ -670,25 +693,39 @@ export class MongoDBStorage implements IStorage {
 
   async addToWishlist(userId: string, productId: string): Promise<WishlistItem> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(productId)) {
+        throw new Error('Invalid user ID or product ID');
+      }
+      
       // Check if product already in wishlist
-      const existingItem = await prisma.wishlistItem.findFirst({
-        where: {
-          userId,
-          productId
-        }
+      const existingItem = await WishlistItem.findOne({
+        user: userId,
+        product: productId
       });
       
       if (existingItem) {
-        return existingItem;
+        // Return existing wishlist item with populated product
+        const populatedItem = await WishlistItem.findById(existingItem._id)
+          .populate('product')
+          .lean();
+          
+        return populatedItem!;
       }
       
-      return await prisma.wishlistItem.create({
-        data: {
-          userId,
-          productId
-        },
-        include: { product: true }
+      // Create new wishlist item
+      const newWishlistItem = new WishlistItem({
+        user: userId,
+        product: productId
       });
+      
+      await newWishlistItem.save();
+      
+      // Return the new wishlist item with populated product
+      const populatedItem = await WishlistItem.findById(newWishlistItem._id)
+        .populate('product')
+        .lean();
+        
+      return populatedItem!;
     } catch (error) {
       console.error('Error adding to wishlist:', error);
       throw error;
@@ -697,17 +734,14 @@ export class MongoDBStorage implements IStorage {
 
   async removeFromWishlist(userId: string, productId: string): Promise<void> {
     try {
-      const wishlistItem = await prisma.wishlistItem.findFirst({
-        where: {
-          userId,
-          productId
-        }
-      });
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(productId)) {
+        return;
+      }
       
-      if (!wishlistItem) return;
-      
-      await prisma.wishlistItem.delete({
-        where: { id: wishlistItem.id }
+      // Delete the wishlist item
+      await WishlistItem.deleteOne({
+        user: userId,
+        product: productId
       });
     } catch (error) {
       console.error('Error removing from wishlist:', error);
@@ -722,40 +756,58 @@ export class MongoDBStorage implements IStorage {
     paymentMethod: string
   ): Promise<Order> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new Error('Invalid user ID');
+      }
+      
       // Calculate total
       let total = 0;
       for (const item of items) {
         total += item.price * item.quantity;
       }
       
-      // Create order
-      const order = await prisma.order.create({
-        data: {
-          userId,
-          total,
-          shippingAddress,
-          paymentMethod,
-          items: {
-            create: items.map((item: any) => ({
-              productId: item.productId,
-              productName: item.productName,
-              productImage: item.productImage,
-              quantity: item.quantity,
-              price: item.price,
-              selectedColor: item.selectedColor,
-              selectedSize: item.selectedSize
-            }))
-          }
-        },
-        include: {
-          items: true
-        }
+      // Create order first
+      const newOrder = new Order({
+        user: userId,
+        total,
+        shippingAddress,
+        paymentMethod,
+        status: OrderStatus.PENDING
       });
+      
+      await newOrder.save();
+      
+      // Create order items
+      const orderItems = [];
+      for (const item of items) {
+        const orderItem = new OrderItem({
+          order: newOrder._id,
+          product: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          quantity: item.quantity,
+          price: item.price,
+          selectedColor: item.selectedColor,
+          selectedSize: item.selectedSize
+        });
+        
+        await orderItem.save();
+        orderItems.push(orderItem);
+      }
+      
+      // Link order items to order
+      newOrder.items = orderItems.map(item => item._id);
+      await newOrder.save();
       
       // Clear cart after order
       await this.clearCart(userId);
       
-      return order;
+      // Return full order with items
+      const populatedOrder = await Order.findById(newOrder._id)
+        .populate('items')
+        .lean();
+      
+      return populatedOrder!;
     } catch (error) {
       console.error('Error creating order:', error);
       throw error;
@@ -764,17 +816,21 @@ export class MongoDBStorage implements IStorage {
 
   async getUserOrders(userId: string): Promise<Order[]> {
     try {
-      return await prisma.order.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          items: {
-            include: {
-              product: true
-            }
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return [];
+      }
+      
+      const orders = await Order.find({ user: userId })
+        .populate({
+          path: 'items',
+          populate: {
+            path: 'product'
           }
-        }
-      });
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return orders;
     } catch (error) {
       console.error('Error fetching user orders:', error);
       return [];
@@ -783,19 +839,21 @@ export class MongoDBStorage implements IStorage {
 
   async getOrderDetails(userId: string, orderId: string): Promise<(Order & { items: OrderItem[] }) | undefined> {
     try {
-      const order = await prisma.order.findFirst({
-        where: {
-          id: orderId,
-          userId
-        },
-        include: {
-          items: {
-            include: {
-              product: true
-            }
-          }
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(orderId)) {
+        return undefined;
+      }
+      
+      const order = await Order.findOne({
+        _id: orderId,
+        user: userId
+      })
+      .populate({
+        path: 'items',
+        populate: {
+          path: 'product'
         }
-      });
+      })
+      .lean();
       
       return order as (Order & { items: OrderItem[] });
     } catch (error) {
@@ -806,10 +864,27 @@ export class MongoDBStorage implements IStorage {
 
   async updateOrderStatus(orderId: string, status: string): Promise<Order | undefined> {
     try {
-      return await prisma.order.update({
-        where: { id: orderId },
-        data: { status: status as any }
-      });
+      if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        return undefined;
+      }
+      
+      // Validate status is a valid OrderStatus
+      if (!Object.values(OrderStatus).includes(status as OrderStatus)) {
+        throw new Error('Invalid order status');
+      }
+      
+      const order = await Order.findByIdAndUpdate(
+        orderId,
+        { 
+          $set: { 
+            status,
+            updatedAt: new Date()
+          } 
+        },
+        { new: true }
+      ).lean();
+      
+      return order || undefined;
     } catch (error) {
       console.error('Error updating order status:', error);
       return undefined;
