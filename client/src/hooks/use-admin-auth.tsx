@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from "react";
 import {
   useQuery,
   useMutation,
@@ -48,6 +48,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   // Use state to keep track of the admin user
   const [adminUserState, setAdminUserState] = useState<AdminUser | null>(getPersistedAdminUser());
+  // Use a ref to track if we've already updated localStorage to prevent effect loops
+  const hasUpdatedStorage = useRef(false);
 
   // Initialize the query with data from localStorage if available
   const {
@@ -58,54 +60,41 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/admin/user"],
     queryFn: async () => {
       try {
-        // First check if we have user in localStorage
-        const storedUser = getPersistedAdminUser();
-        if (storedUser) {
-          // Verify with server if this user is still valid
-          const res = await apiRequest("GET", "/api/admin/user");
-          if (res.status === 200) {
-            const data = await res.json();
-            setAdminUserState(data);
-            return data;
-          } else {
-            // If server says no, clear localStorage
-            localStorage.removeItem(LOCAL_STORAGE_ADMIN_KEY);
-            setAdminUserState(null);
-            return null;
-          }
-        }
-        
-        // No stored user, try to get from server
+        // Try to get from server first
         const res = await apiRequest("GET", "/api/admin/user");
-        if (res.status === 401 || res.status === 403) {
-          setAdminUserState(null);
+        if (res.status === 200) {
+          const data = await res.json();
+          return data;
+        } else {
+          // If server says no, return null
           return null;
         }
-        const data = await res.json();
-        setAdminUserState(data);
-        return data;
       } catch (error) {
         console.error("Error fetching admin user:", error);
-        // On error, use what we have in state
-        return adminUserState;
+        // On error, use what we have in localStorage
+        return getPersistedAdminUser();
       }
     },
     // Use stale time to avoid too frequent refetches
     staleTime: 5 * 60 * 1000, // 5 minutes
     // Use initialData as a fallback
-    initialData: adminUserState,
+    initialData: getPersistedAdminUser(),
     // Don't refetch on window focus since we manage state ourselves
     refetchOnWindowFocus: false,
   });
 
-  // Always use adminUserState as the source of truth
-  const adminUser = adminUserState;
-
-  // Persist user data to localStorage when it changes
+  // Update state and localStorage when data from query changes
   useEffect(() => {
-    if (adminUserData) {
-      localStorage.setItem(LOCAL_STORAGE_ADMIN_KEY, JSON.stringify(adminUserData));
+    if (adminUserData !== undefined) {
       setAdminUserState(adminUserData);
+      // Only update localStorage if we have real data and not already updated
+      if (adminUserData && !hasUpdatedStorage.current) {
+        localStorage.setItem(LOCAL_STORAGE_ADMIN_KEY, JSON.stringify(adminUserData));
+        hasUpdatedStorage.current = true;
+      } else if (!adminUserData) {
+        localStorage.removeItem(LOCAL_STORAGE_ADMIN_KEY);
+        hasUpdatedStorage.current = false;
+      }
     }
   }, [adminUserData]);
 
@@ -121,6 +110,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/admin/user"], user);
       localStorage.setItem(LOCAL_STORAGE_ADMIN_KEY, JSON.stringify(user));
       setAdminUserState(user);
+      hasUpdatedStorage.current = true;
       toast({
         title: "Login successful",
         description: `Welcome back, ${user.fullName || user.email}!`,
@@ -143,6 +133,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/admin/user"], null);
       localStorage.removeItem(LOCAL_STORAGE_ADMIN_KEY);
       setAdminUserState(null);
+      hasUpdatedStorage.current = false;
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
@@ -160,7 +151,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   return (
     <AdminAuthContext.Provider
       value={{
-        adminUser,
+        adminUser: adminUserState,
         isLoading,
         error,
         adminLoginMutation,

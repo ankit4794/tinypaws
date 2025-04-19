@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect } from "react";
+import { createContext, ReactNode, useContext, useEffect, useState, useRef } from "react";
 import {
   useQuery,
   useMutation,
@@ -48,29 +48,54 @@ const getPersistedUser = (): User | null => {
 export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [userState, setUserState] = useState<User | null>(getPersistedUser());
+  // Use a ref to track if we've already updated localStorage to prevent effect loops
+  const hasUpdatedStorage = useRef(false);
   
   // Initialize the query with data from localStorage if available
   const {
-    data: user,
+    data: userData,
     error,
     isLoading,
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
-    // Prevent automatic fetching on mount if we already have data in localStorage
-    enabled: !getPersistedUser(),
+    queryFn: async () => {
+      try {
+        // Try to get from server
+        const res = await fetch("/api/user");
+        if (res.status === 200) {
+          const data = await res.json();
+          return data;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        // On error, return what we have in localStorage
+        return getPersistedUser();
+      }
+    },
+    // Use stale time to avoid too frequent refetches
+    staleTime: 5 * 60 * 1000, // 5 minutes
     // Initialize with localStorage data
-    initialData: getPersistedUser,
+    initialData: getPersistedUser(),
+    // Don't refetch on window focus
+    refetchOnWindowFocus: false,
   });
 
-  // Persist user data to localStorage when it changes
+  // Update state and localStorage when data from query changes
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(user));
-    } else if (user === null && !isLoading) {
-      localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+    if (userData !== undefined) {
+      setUserState(userData);
+      // Only update localStorage if we have real data and not already updated
+      if (userData && !hasUpdatedStorage.current) {
+        localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(userData));
+        hasUpdatedStorage.current = true;
+      } else if (!userData) {
+        localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
+        hasUpdatedStorage.current = false;
+      }
     }
-  }, [user, isLoading]);
+  }, [userData]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
@@ -80,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
       localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(user));
+      setUserState(user);
+      hasUpdatedStorage.current = true;
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
@@ -102,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
       localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(user));
+      setUserState(user);
+      hasUpdatedStorage.current = true;
       toast({
         title: "Account created",
         description: "Your account has been successfully created.",
@@ -140,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ?? null,
+        user: userState,
         isLoading,
         error,
         loginMutation,
