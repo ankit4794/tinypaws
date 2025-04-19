@@ -4,3 +4,5 @@ export * from './use-admin-orders';
 export * from './use-admin-users';
 export * from './use-admin-categories';
 export * from './use-admin-contacts';
+export * from './use-admin-pincodes';
+export * from './use-admin-tickets';
