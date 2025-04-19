@@ -1,24 +1,19 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { storage } from '@/server/storage';
+import { withAdminAuth } from '@/middleware/admin-auth';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
-    // Check if the user is authenticated and is an admin
-    const user = req.session.user;
-    if (!user || user.role !== 'ADMIN') {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-
     // Get dashboard statistics
-    const [products, allOrders, users] = await Promise.all([
-      storage.getProducts(),
-      storage.getAllOrders ? storage.getAllOrders() : [],
-      storage.getAllUsers ? storage.getAllUsers() : []
-    ]);
+    const products = await storage.getProducts();
+    
+    // Check if these optional methods exist in the storage implementation
+    const allOrders = storage.getAllOrders ? await storage.getAllOrders() : [];
+    const users = storage.getAllUsers ? await storage.getAllUsers() : [];
 
     // Get only the most recent 5 orders
     const recentOrders = allOrders
@@ -36,3 +31,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ message: 'Failed to fetch dashboard data' });
   }
 }
+
+export default withAdminAuth(handler);
