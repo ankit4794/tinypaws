@@ -17,11 +17,11 @@ const RecentOrdersWidget: React.FC<RecentOrdersWidgetProps> = ({
   return (
     <Widget {...rest} icon={<ShoppingBag className="h-4 w-4" />}>
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading recent orders...</p>
+        <p className="text-sm text-muted-foreground">Loading orders...</p>
       ) : error ? (
         <p className="text-sm text-destructive">Error loading orders</p>
       ) : !data?.orders?.length ? (
-        <p className="text-sm text-muted-foreground">No recent orders</p>
+        <p className="text-sm text-muted-foreground">No orders found</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -37,9 +37,11 @@ const RecentOrdersWidget: React.FC<RecentOrdersWidgetProps> = ({
               {data.orders.slice(0, limit).map((order) => (
                 <tr key={order.id} className="border-t">
                   <td className="p-2 text-xs">{order.id}</td>
-                  <td className="p-2 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
+                  <td className="p-2 text-xs text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </td>
                   <td className="p-2 text-xs">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs 
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs 
                       ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                         order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
                         order.status === 'shipped' ? 'bg-purple-100 text-purple-800' :
