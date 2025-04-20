@@ -40,8 +40,10 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(500).json({ error: 'Login failed' });
       }
       
-      // Return user info without password
-      const { password, ...userWithoutPassword } = user;
+      // Return user info without sensitive data
+      const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
+      // Remove password from response
+      const { password, ...userWithoutPassword } = userObj;
       res.status(200).json(userWithoutPassword);
     });
   } catch (error) {
@@ -63,7 +65,16 @@ router.post('/logout', (req: Request, res: Response) => {
 // Get current admin user
 router.get('/user', requireAdmin, (req: Request, res: Response) => {
   // If we reach here, the requireAdmin middleware has already verified the user
-  const { password, ...userWithoutPassword } = req.user;
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  const userObj = typeof req.user.toObject === 'function' 
+    ? req.user.toObject() 
+    : req.user;
+    
+  // Remove password from response
+  const { password, ...userWithoutPassword } = userObj;
   res.status(200).json(userWithoutPassword);
 });
 

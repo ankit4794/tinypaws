@@ -368,6 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/promotions", promotionsRoutes);
   
   // Mount admin routes
+  app.use("/api/admin/auth", adminAuthRoutes);
   app.use("/api/admin/reviews", adminReviewsRoutes);
   app.use("/api/admin/pincodes", adminPincodesRoutes);
   app.use("/api/admin/cms", adminCmsRoutes);
