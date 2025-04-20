@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import '@/styles/globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import CookieConsent from '@/components/common/CookieConsent';
 
 export default function App({ Component, pageProps }: AppProps) {
   // Check if the current path is an admin route
@@ -21,6 +22,7 @@ export default function App({ Component, pageProps }: AppProps) {
           <Component {...pageProps} />
         </main>
         {!isAdminRoute && <Footer />}
+        {!isAdminRoute && <CookieConsent />}
       </div>
       <Toaster />
     </AuthProvider>

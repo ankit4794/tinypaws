@@ -10,6 +10,8 @@ export interface Category {
   image?: string;
   isActive: boolean;
   type?: string;
+  forPet?: string;
+  displayOrder?: number;
   createdAt?: string;
   updatedAt?: string;
 }
