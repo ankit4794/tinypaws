@@ -84,7 +84,7 @@ export const useAdminDashboard = () => {
   // Create a new dashboard configuration
   const createDashboardConfigMutation = useMutation({
     mutationFn: async (config: DashboardConfig) => {
-      const res = await apiRequest('POST', '/api/admin/dashboard/config', config);
+      const res = await apiRequest('PUT', '/api/admin/dashboard', config);
       return await res.json();
     },
     onSuccess: (data) => {

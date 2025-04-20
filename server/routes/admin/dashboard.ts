@@ -12,7 +12,7 @@ router.use(requireAdmin);
 // Get dashboard configuration
 router.get('/', async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -79,71 +79,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get dashboard configuration for the current user
-router.get('/config', async (req, res) => {
-  try {
-    const userId = req.user?._id;
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    let dashboardConfig = await storageProvider.instance.getDashboardConfig(userId);
-    
-    // If no dashboard config exists, create a default one
-    if (!dashboardConfig) {
-      // Create default widgets
-      const defaultWidgets = [
-        {
-          id: uuidv4(),
-          type: WidgetType.SALES_SUMMARY,
-          title: 'Sales Summary',
-          position: { x: 0, y: 0, w: 6, h: 4 },
-          isVisible: true
-        },
-        {
-          id: uuidv4(),
-          type: WidgetType.RECENT_ORDERS,
-          title: 'Recent Orders',
-          position: { x: 6, y: 0, w: 6, h: 4 },
-          isVisible: true
-        },
-        {
-          id: uuidv4(),
-          type: WidgetType.LOW_STOCK,
-          title: 'Low Stock Products',
-          position: { x: 0, y: 4, w: 6, h: 4 },
-          isVisible: true
-        },
-        {
-          id: uuidv4(),
-          type: WidgetType.TOP_PRODUCTS,
-          title: 'Top Products',
-          position: { x: 6, y: 4, w: 6, h: 4 },
-          isVisible: true
-        },
-        {
-          id: uuidv4(),
-          type: WidgetType.ORDER_STATUS,
-          title: 'Order Status',
-          position: { x: 0, y: 8, w: 4, h: 4 },
-          isVisible: true
-        }
-      ];
-      
-      dashboardConfig = await storageProvider.instance.createDashboardConfig({
-        userId,
-        widgets: defaultWidgets,
-        lastModified: new Date()
-      });
-    }
-
-    res.json(dashboardConfig);
-  } catch (error) {
-    console.error('Error fetching dashboard config:', error);
-    res.status(500).json({ error: 'Failed to fetch dashboard configuration' });
-  }
-});
-
 // Update widget positions
 router.patch('/widget-positions', async (req, res) => {
   try {
@@ -172,7 +107,7 @@ router.patch('/widget-positions', async (req, res) => {
 // Toggle widget visibility
 router.patch('/widget-visibility', async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -197,7 +132,7 @@ router.patch('/widget-visibility', async (req, res) => {
 // Update dashboard configuration
 router.put('/', async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
