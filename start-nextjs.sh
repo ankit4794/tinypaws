@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# Install dependencies if needed
-echo "Checking Next.js dependencies..."
+# Start Next.js only (Express server will be started separately)
+echo "Starting Next.js application..."
 
-# Build Next.js application
-echo "Building Next.js application..."
-npx next build
-
-# Start Next.js server
-echo "Starting Next.js server..."
-npx next start -p 3000
+# Run Next.js
+npx next dev
