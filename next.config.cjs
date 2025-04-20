@@ -29,11 +29,11 @@ const nextConfig = {
   assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
   // Enable hostname detection
   serverRuntimeConfig: {
-    PROJECT_ROOT: '.',
+    PROJECT_ROOT: __dirname,
   },
   publicRuntimeConfig: {
     API_URL: process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000',
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

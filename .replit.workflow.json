@@ -6,7 +6,7 @@
     },
     {
       "name": "Start Next.js only",
-      "command": "npx next dev -p 3000 -H 0.0.0.0"
+      "command": "NODE_OPTIONS=\"--experimental-json-modules\" npx next dev -p 3000 -H 0.0.0.0 --config next.config.cjs"
     },
     {
       "name": "Start Express API only",
