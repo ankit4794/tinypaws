@@ -1,218 +1,108 @@
-import Link from 'next/link';
-import { 
-  Facebook, 
-  Twitter, 
-  Instagram, 
-  Youtube,
-  Mail,
-  Phone,
-  MapPin,
-  CreditCard,
-  Lock,
-  TruckDelivery
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Link } from "wouter";
 
-export default function Footer() {
+const Footer = () => {
   return (
-    <footer className="bg-white text-black">
-      {/* Newsletter Section */}
-      <div className="border-t border-b">
-        <div className="container mx-auto px-4 py-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              <h3 className="text-xl font-bold mb-1">Subscribe to our newsletter</h3>
-              <p className="text-gray-600">
-                Get the latest updates on new products and upcoming sales
-              </p>
-            </div>
-            <div>
-              <form className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="Your email address"
-                  className="flex-grow"
-                />
-                <Button type="submit">Subscribe</Button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Main Footer */}
-      <div className="container mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <footer className="bg-white border-t border-gray-200 pt-12 pb-8">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-10">
           {/* Column 1: About */}
-          <div>
-            <h3 className="font-bold text-lg mb-4">TinyPaws</h3>
+          <div className="lg:col-span-2">
+            <div className="mb-4">
+              <div className="text-2xl font-bold flex items-center">
+                <span className="text-black mr-1">tiny</span>
+                <span className="text-black font-bold">paws</span>
+                <i className="fas fa-paw ml-1 text-black"></i>
+              </div>
+            </div>
             <p className="text-gray-600 mb-4">
-              Your one-stop shop for all pet needs. We provide high-quality products
-              for your furry, feathery, or scaly friends.
+              TinyPaws is India's premier online pet store offering premium products for dogs, cats, and small animals. We're dedicated to making pet parenting easier with quality products and exceptional service.
             </p>
-            <div className="flex gap-4">
-              <Link href="https://facebook.com" className="text-gray-600 hover:text-black">
-                <Facebook size={20} />
-              </Link>
-              <Link href="https://twitter.com" className="text-gray-600 hover:text-black">
-                <Twitter size={20} />
-              </Link>
-              <Link href="https://instagram.com" className="text-gray-600 hover:text-black">
-                <Instagram size={20} />
-              </Link>
-              <Link href="https://youtube.com" className="text-gray-600 hover:text-black">
-                <Youtube size={20} />
-              </Link>
+            <div className="flex space-x-4 mb-4">
+              <a href="#" className="text-gray-600 hover:text-black">
+                <i className="fab fa-facebook-f"></i>
+              </a>
+              <a href="#" className="text-gray-600 hover:text-black">
+                <i className="fab fa-instagram"></i>
+              </a>
+              <a href="#" className="text-gray-600 hover:text-black">
+                <i className="fab fa-twitter"></i>
+              </a>
+              <a href="#" className="text-gray-600 hover:text-black">
+                <i className="fab fa-youtube"></i>
+              </a>
             </div>
           </div>
           
           {/* Column 2: Quick Links */}
           <div>
-            <h3 className="font-bold text-lg mb-4">Quick Links</h3>
+            <h3 className="font-semibold text-lg mb-4">Quick Links</h3>
             <ul className="space-y-2">
-              <li>
-                <Link href="/products" className="text-gray-600 hover:text-black">
-                  Shop All
-                </Link>
-              </li>
-              <li>
-                <Link href="/products?category=dogs" className="text-gray-600 hover:text-black">
-                  Dogs
-                </Link>
-              </li>
-              <li>
-                <Link href="/products?category=cats" className="text-gray-600 hover:text-black">
-                  Cats
-                </Link>
-              </li>
-              <li>
-                <Link href="/products?category=small-animals" className="text-gray-600 hover:text-black">
-                  Small Animals
-                </Link>
-              </li>
-              <li>
-                <Link href="/offers" className="text-gray-600 hover:text-black">
-                  Offers & Deals
-                </Link>
-              </li>
+              <li><Link href="/about" className="text-gray-600 hover:text-black">About Us</Link></li>
+              <li><Link href="/contact" className="text-gray-600 hover:text-black">Contact Us</Link></li>
+              <li><Link href="/blogs" className="text-gray-600 hover:text-black">Blog</Link></li>
+              <li><Link href="/faqs" className="text-gray-600 hover:text-black">FAQs</Link></li>
+              <li><Link href="/store-locator" className="text-gray-600 hover:text-black">Store Locator</Link></li>
             </ul>
           </div>
           
-          {/* Column 3: Customer Service */}
+          {/* Column 3: Shop */}
           <div>
-            <h3 className="font-bold text-lg mb-4">Customer Service</h3>
+            <h3 className="font-semibold text-lg mb-4">Shop</h3>
             <ul className="space-y-2">
-              <li>
-                <Link href="/help" className="text-gray-600 hover:text-black">
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <Link href="/track-order" className="text-gray-600 hover:text-black">
-                  Track Your Order
-                </Link>
-              </li>
-              <li>
-                <Link href="/shipping" className="text-gray-600 hover:text-black">
-                  Shipping Information
-                </Link>
-              </li>
-              <li>
-                <Link href="/returns" className="text-gray-600 hover:text-black">
-                  Returns & Refunds
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-gray-600 hover:text-black">
-                  Contact Us
-                </Link>
-              </li>
+              <li><Link href="/products/dogs" className="text-gray-600 hover:text-black">Dogs</Link></li>
+              <li><Link href="/products/cats" className="text-gray-600 hover:text-black">Cats</Link></li>
+              <li><Link href="/products/small-animals" className="text-gray-600 hover:text-black">Small Animals</Link></li>
+              <li><Link href="/products/best-sellers" className="text-gray-600 hover:text-black">Best Sellers</Link></li>
+              <li><Link href="/products/new-arrivals" className="text-gray-600 hover:text-black">New Arrivals</Link></li>
             </ul>
           </div>
           
-          {/* Column 4: Contact */}
+          {/* Column 4: Help */}
           <div>
-            <h3 className="font-bold text-lg mb-4">Contact Us</h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-gray-600 mt-0.5" />
-                <span className="text-gray-600">
-                  123 Pet Street, New Delhi, 110001, India
-                </span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-gray-600" />
-                <span className="text-gray-600">+91 1234567890</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-gray-600" />
-                <span className="text-gray-600">info@tinypaws.com</span>
-              </li>
+            <h3 className="font-semibold text-lg mb-4">Help</h3>
+            <ul className="space-y-2">
+              <li><Link href="/track-order" className="text-gray-600 hover:text-black">Track Your Order</Link></li>
+              <li><Link href="/shipping-policy" className="text-gray-600 hover:text-black">Shipping Policy</Link></li>
+              <li><Link href="/returns" className="text-gray-600 hover:text-black">Returns & Exchanges</Link></li>
+              <li><Link href="/payment-options" className="text-gray-600 hover:text-black">Payment Options</Link></li>
+              <li><Link href="/privacy-policy" className="text-gray-600 hover:text-black">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-gray-600 hover:text-black">Terms & Conditions</Link></li>
             </ul>
           </div>
         </div>
-      </div>
-      
-      {/* Payment Methods & Trust Badges */}
-      <div className="border-t">
-        <div className="container mx-auto px-4 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <img src="/visa.svg" alt="Visa" className="h-8" />
-              <img src="/mastercard.svg" alt="Mastercard" className="h-8" />
-              <img src="/paypal.svg" alt="PayPal" className="h-8" />
-              <img src="/americanexpress.svg" alt="American Express" className="h-8" />
-            </div>
-            
-            <div className="flex flex-wrap justify-center gap-6">
-              <div className="flex items-center gap-2">
-                <TruckDelivery className="h-5 w-5 text-gray-600" />
-                <span className="text-sm text-gray-600">Free Shipping</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-gray-600" />
-                <span className="text-sm text-gray-600">Secure Payment</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-gray-600" />
-                <span className="text-sm text-gray-600">COD Available</span>
-              </div>
-            </div>
-            
-            <div className="text-center md:text-right text-gray-600 text-sm">
-              © {new Date().getFullYear()} TinyPaws. All rights reserved.
+        
+        {/* Contact & Payment */}
+        <div className="flex flex-col md:flex-row justify-between py-6 border-t border-gray-200">
+          <div className="mb-4 md:mb-0">
+            <h3 className="font-semibold mb-2">Contact Us</h3>
+            <p className="text-gray-600"><i className="fas fa-envelope mr-2"></i> support@tinypaws.in</p>
+            <p className="text-gray-600"><i className="fas fa-phone-alt mr-2"></i> +91 1234567890</p>
+          </div>
+          
+          <div>
+            <h3 className="font-semibold mb-2">Secure Payments</h3>
+            <div className="flex space-x-4">
+              <i className="fab fa-cc-visa text-2xl text-gray-600"></i>
+              <i className="fab fa-cc-mastercard text-2xl text-gray-600"></i>
+              <i className="fab fa-cc-amex text-2xl text-gray-600"></i>
+              <i className="fab fa-cc-paypal text-2xl text-gray-600"></i>
+              <i className="fas fa-money-bill-wave text-2xl text-gray-600"></i>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Bottom Links */}
-      <div className="bg-gray-100">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-600">
-            <Link href="/privacy" className="hover:text-black">
-              Privacy Policy
-            </Link>
-            <span>|</span>
-            <Link href="/terms" className="hover:text-black">
-              Terms & Conditions
-            </Link>
-            <span>|</span>
-            <Link href="/shipping-policy" className="hover:text-black">
-              Shipping Policy
-            </Link>
-            <span>|</span>
-            <Link href="/refund-policy" className="hover:text-black">
-              Refund Policy
-            </Link>
-            <span>|</span>
-            <Link href="/sitemap" className="hover:text-black">
-              Sitemap
-            </Link>
-          </div>
+        
+        {/* Copyright */}
+        <div className="text-center pt-6 border-t border-gray-200">
+          <p className="text-gray-600 text-sm">© {new Date().getFullYear()} TinyPaws. All rights reserved.</p>
         </div>
       </div>
+
+      {/* WhatsApp Support Button */}
+      <a href="#" className="fixed bottom-6 right-6 bg-green-500 text-white p-3 rounded-full shadow-lg z-40 hover:bg-green-600 transition-all">
+        <i className="fab fa-whatsapp text-2xl"></i>
+      </a>
     </footer>
   );
-}
+};
+
+export default Footer;
