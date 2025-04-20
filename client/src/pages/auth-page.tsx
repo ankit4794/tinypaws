@@ -68,7 +68,7 @@ export default function AuthPage() {
   // Handle login submission
   const onLoginSubmit = (values: LoginValues) => {
     loginMutation.mutate({
-      username: values.email, // our auth hook expects 'username'
+      username: values.email, // Our backend expects 'username' but we use email
       password: values.password,
     });
   };
@@ -76,8 +76,12 @@ export default function AuthPage() {
   // Handle registration submission
   const onRegisterSubmit = (values: RegisterValues) => {
     registerMutation.mutate({
-      username: values.email, // our auth hook expects 'username'
-      ...values,
+      username: values.email, // Our backend expects 'username' but we use email
+      email: values.email,
+      password: values.password,
+      fullName: values.fullName,
+      mobile: values.mobile,
+      role: "USER"
     });
   };
 
