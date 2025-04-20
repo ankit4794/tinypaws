@@ -130,7 +130,7 @@ const Header = () => {
                           {category.subCategories.map((sub) => (
                             <li key={sub._id}>
                               <Link 
-                                href={sub.path} 
+                                href={`/products/${sub.slug}`} 
                                 className="block px-4 py-2 hover:bg-gray-100"
                               >
                                 {sub.name}
