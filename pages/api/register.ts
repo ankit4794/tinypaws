@@ -41,7 +41,7 @@ export default async function handler(
       email,
       password: hashedPassword,
       fullName: fullName || '',
-      role: UserRole.CUSTOMER,
+      role: UserRole.USER,
       createdAt: new Date(),
       updatedAt: new Date()
     });
