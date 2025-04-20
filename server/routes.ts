@@ -16,6 +16,7 @@ import adminCategoriesRoutes from "./routes/admin/categories";
 import adminProductsRoutes from "./routes/admin/products";
 import adminDashboardRoutes from "./routes/admin/dashboard";
 import adminBrandsRoutes from "./routes/admin/brands";
+import adminAuthRoutes from "./routes/admin/auth";
 import pincodesRoutes from "./routes/pincodes";
 import uploadRoutes from "./routes/upload";
 
