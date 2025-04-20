@@ -194,26 +194,38 @@ const ProductDetailPage = () => {
           {/* Product Images */}
           <div>
             <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-              <img 
-                src={activeImage}
-                alt={product.name}
-                className="w-full h-auto object-contain aspect-square"
-              />
+              {activeImage ? (
+                <img 
+                  src={activeImage}
+                  alt={product.name}
+                  className="w-full h-auto object-contain aspect-square"
+                />
+              ) : (
+                <div className="w-full aspect-square flex items-center justify-center bg-gray-100 text-gray-500">
+                  No image available
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-5 gap-2">
-              {product.images.map((image, index) => (
-                <div 
-                  key={index}
-                  className={`rounded-lg overflow-hidden border ${activeImage === image ? 'border-black' : 'border-gray-200'} hover:border-black cursor-pointer`}
-                  onClick={() => setActiveImage(image)}
-                >
-                  <img 
-                    src={image}
-                    alt={`${product.name} view ${index + 1}`}
-                    className="w-full h-auto object-cover aspect-square"
-                  />
+              {product.images && product.images.length > 0 ? (
+                product.images.map((image, index) => (
+                  <div 
+                    key={index}
+                    className={`rounded-lg overflow-hidden border ${activeImage === image ? 'border-black' : 'border-gray-200'} hover:border-black cursor-pointer`}
+                    onClick={() => setActiveImage(image)}
+                  >
+                    <img 
+                      src={image}
+                      alt={`${product.name} view ${index + 1}`}
+                      className="w-full h-auto object-cover aspect-square"
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-500 col-span-5 text-center py-4">
+                  No product images available
                 </div>
-              ))}
+              )}
             </div>
           </div>
           
@@ -223,9 +235,9 @@ const ProductDetailPage = () => {
             
             <div className="flex items-center mb-4">
               <div className="flex items-center">
-                {renderStars(product.rating)}
+                {renderStars(product.rating || 0)}
               </div>
-              <span className="text-sm text-gray-500 ml-2">({product.reviewCount} reviews)</span>
+              <span className="text-sm text-gray-500 ml-2">({product.reviewCount || 0} reviews)</span>
             </div>
             
             <div className="mb-6">
@@ -420,11 +432,11 @@ const ProductDetailPage = () => {
                 
                 <div className="flex items-center mb-6">
                   <div className="mr-4">
-                    <div className="text-3xl font-bold">{product.rating.toFixed(1)}</div>
+                    <div className="text-3xl font-bold">{product.rating ? product.rating.toFixed(1) : "0.0"}</div>
                     <div className="flex">
-                      {renderStars(product.rating)}
+                      {renderStars(product.rating || 0)}
                     </div>
-                    <div className="text-sm text-gray-500">{product.reviewCount} reviews</div>
+                    <div className="text-sm text-gray-500">{product.reviewCount || 0} reviews</div>
                   </div>
                   
                   <div className="flex-grow">
