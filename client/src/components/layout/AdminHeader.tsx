@@ -1,8 +1,7 @@
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
-import { Link, useLocation } from "wouter";
-import { ChevronDown, LogOut, Menu, User, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Link } from "wouter";
+import { Bell, ChevronDown, LogOut, Search, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,221 +10,86 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 export default function AdminHeader() {
   const { adminUser, adminLogoutMutation } = useAdminAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [location, navigate] = useLocation();
-
-  // Handle logout with redirect to login page after success
-  const handleLogout = () => {
-    adminLogoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        // Redirect to login page
-        navigate("/admin/login");
-      }
-    });
-  };
   
-  // Close mobile menu when location changes
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [location]);
+  // Handle logout
+  const handleLogout = () => {
+    adminLogoutMutation.mutate();
+  };
 
   return (
-    <header className="bg-slate-900 text-white">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/admin" className="text-xl font-bold">
-              TinyPaws Admin
-            </Link>
-          </div>
-
-          {/* Mobile menu button */}
-          <button
-            className="lg:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
-
-          {/* Desktop navigation */}
-          <nav className="hidden lg:flex items-center space-x-8">
-            <Link
-              href="/admin"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/products"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Products
-            </Link>
-            <Link
-              href="/admin/orders"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Orders
-            </Link>
-            <Link
-              href="/admin/customers"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Customers
-            </Link>
-            <Link
-              href="/admin/categories"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Categories
-            </Link>
-            <Link
-              href="/admin/reviews"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Reviews
-            </Link>
-            <Link
-              href="/admin/pincodes"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Pincodes
-            </Link>
-            <Link
-              href="/admin/help-desk"
-              className="text-gray-200 hover:text-white transition-colors"
-            >
-              Help Desk
-            </Link>
-
-            {/* User menu */}
-            {adminUser ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 text-gray-200">
-                    <User className="mr-2 h-4 w-4" /> {adminUser.email}
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {adminUser.fullName || "Administrator"}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {adminUser.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Link href="/admin/login">
-                <Button variant="outline" className="text-white">
-                  Login
-                </Button>
-              </Link>
-            )}
-          </nav>
+    <header className="bg-slate-900 text-white py-3 px-4 border-b border-slate-700">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center md:hidden">
+          <Link href="/admin" className="text-xl font-bold">
+            TinyPaws
+          </Link>
         </div>
 
-        {/* Mobile navigation */}
-        {isMenuOpen && (
-          <div className="mt-4 lg:hidden">
-            <nav className="flex flex-col space-y-4 py-4">
-              <Link
-                href="/admin"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/admin/products"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Products
-              </Link>
-              <Link
-                href="/admin/orders"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Orders
-              </Link>
-              <Link
-                href="/admin/customers"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Customers
-              </Link>
-              <Link
-                href="/admin/categories"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Categories
-              </Link>
-              <Link
-                href="/admin/reviews"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Reviews
-              </Link>
-              <Link
-                href="/admin/pincodes"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Pincodes
-              </Link>
-              <Link
-                href="/admin/help-desk"
-                className="text-gray-200 hover:text-white transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Help Desk
-              </Link>
-              {adminUser ? (
-                <Button
-                  variant="ghost"
-                  className="justify-start text-gray-200 hover:text-white p-0"
+        {/* Search bar */}
+        <div className="hidden md:flex flex-1 max-w-md mx-4">
+          <div className="relative w-full">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search..."
+              className="w-full bg-slate-800 border-slate-700 pl-8 text-white placeholder:text-slate-400"
+            />
+          </div>
+        </div>
+
+        {/* Right side icons */}
+        <div className="flex items-center space-x-3">
+          <Button size="icon" variant="ghost" className="text-slate-200">
+            <Bell className="h-5 w-5" />
+          </Button>
+
+          {/* User menu */}
+          {adminUser ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative text-slate-200 space-x-1">
+                  <User className="h-5 w-5" />
+                  <span className="hidden md:inline">{adminUser.email}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {adminUser.fullName || "Administrator"}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {adminUser.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/settings" className="cursor-pointer w-full">
+                    Profile Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
                   onClick={handleLogout}
                 >
-                  <LogOut className="mr-2 h-4 w-4" /> Logout
-                </Button>
-              ) : (
-                <Link href="/admin/login" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    variant="outline"
-                    className="w-full text-white"
-                  >
-                    Login
-                  </Button>
-                </Link>
-              )}
-            </nav>
-          </div>
-        )}
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/admin/login">
+              <Button variant="outline" className="text-white">
+                Login
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );
