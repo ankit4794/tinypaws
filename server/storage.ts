@@ -8,7 +8,10 @@ import type {
   OrderItem,
   Review,
   ContactSubmission,
-  NewsletterSubscriber
+  NewsletterSubscriber,
+  DashboardConfig,
+  Widget,
+  InsertDashboardConfig
 } from "@shared/schema";
 import session from "express-session";
 import connectMongo from "connect-mongo";
@@ -72,6 +75,13 @@ export interface IStorage {
   
   // Session store
   sessionStore: session.Store;
+  
+  // Dashboard configuration methods
+  getDashboardConfig(userId: string): Promise<DashboardConfig | null>;
+  createDashboardConfig(config: InsertDashboardConfig): Promise<DashboardConfig>;
+  updateDashboardConfig(userId: string, config: Partial<DashboardConfig>): Promise<DashboardConfig | null>;
+  updateWidgetPositions(userId: string, widgets: { id: string, position: { x: number, y: number, w: number, h: number } }[]): Promise<DashboardConfig | null>;
+  toggleWidgetVisibility(userId: string, widgetId: string, isVisible: boolean): Promise<DashboardConfig | null>;
   
   // Admin-specific methods (optional)
   getAllUsers?: () => Promise<User[]>;

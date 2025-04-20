@@ -919,3 +919,34 @@ export type UserSessionDocument = mongoose.Document & {
   updatedAt: Date;
 };
 export type UserSession = UserSessionDocument;
+
+export type InsertWidgetPosition = z.infer<typeof insertWidgetPositionSchema>;
+export type WidgetPositionDocument = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+export type WidgetPosition = WidgetPositionDocument;
+
+export type InsertWidget = z.infer<typeof insertWidgetSchema>;
+export type WidgetDocument = {
+  id: string;
+  type: WidgetType;
+  title: string;
+  size: WidgetSize;
+  position: WidgetPosition;
+  settings?: Record<string, any>;
+  isVisible: boolean;
+};
+export type Widget = WidgetDocument;
+
+export type InsertDashboardConfig = z.infer<typeof insertDashboardConfigSchema>;
+export type DashboardConfigDocument = mongoose.Document & {
+  userId: mongoose.Types.ObjectId;
+  widgets: Widget[];
+  lastModified: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+export type DashboardConfig = DashboardConfigDocument;

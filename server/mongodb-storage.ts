@@ -4,7 +4,10 @@ import session from 'express-session';
 import connectMongo from 'connect-mongo';
 import { 
   UserRole,
-  OrderStatus
+  OrderStatus,
+  WidgetType,
+  WidgetSize,
+  InsertDashboardConfig
 } from '@shared/schema';
 import {
   User,
@@ -20,7 +23,8 @@ import {
   CmsPage,
   ServiceablePincode,
   Disclaimer,
-  Promotion
+  Promotion,
+  DashboardConfig
 } from './models';
 
 // Types for MongoDB documents

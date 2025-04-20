@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { UserRole, OrderStatus } from '@shared/schema';
+import { UserRole, OrderStatus, WidgetType, WidgetSize } from '@shared/schema';
 
 // User Schema
 const userSchema = new Schema({
@@ -214,3 +214,41 @@ export const CmsPage = mongoose.models.CmsPage || mongoose.model('CmsPage', cmsP
 export const ServiceablePincode = mongoose.models.ServiceablePincode || mongoose.model('ServiceablePincode', serviceablePincodeSchema);
 export const Disclaimer = mongoose.models.Disclaimer || mongoose.model('Disclaimer', disclaimerSchema);
 export const Promotion = mongoose.models.Promotion || mongoose.model('Promotion', promotionSchema);
+
+// Widget Position Schema (embedded document)
+const widgetPositionSchema = new Schema({
+  x: { type: Number, required: true },
+  y: { type: Number, required: true },
+  w: { type: Number, required: true },
+  h: { type: Number, required: true }
+});
+
+// Widget Schema (embedded document)
+const widgetSchema = new Schema({
+  id: { type: String, required: true },
+  type: { 
+    type: String, 
+    enum: Object.values(WidgetType),
+    required: true 
+  },
+  title: { type: String, required: true },
+  size: { 
+    type: String,
+    enum: Object.values(WidgetSize),
+    default: WidgetSize.MEDIUM
+  },
+  position: { type: widgetPositionSchema, required: true },
+  settings: { type: Schema.Types.Mixed },
+  isVisible: { type: Boolean, default: true }
+});
+
+// DashboardConfig Schema
+const dashboardConfigSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  widgets: [widgetSchema],
+  lastModified: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+export const DashboardConfig = mongoose.models.DashboardConfig || mongoose.model('DashboardConfig', dashboardConfigSchema);
