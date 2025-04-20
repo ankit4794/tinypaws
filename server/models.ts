@@ -33,6 +33,24 @@ const categorySchema = new Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// Brand Schema
+const brandSchema = new Schema({
+  name: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  description: { type: String },
+  logo: { type: String, required: true },
+  bannerImage: { type: String },
+  featured: { type: Boolean, default: false },
+  discount: {
+    type: { type: String, enum: ['flat', 'percentage', 'none'], default: 'none' },
+    value: { type: Number, default: 0 },
+    label: { type: String }
+  },
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 // Product Schema
 const productSchema = new Schema({
   name: { type: String, required: true },
@@ -44,7 +62,7 @@ const productSchema = new Schema({
   images: [{ type: String }],
   features: [{ type: String }],
   category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
-  brand: { type: String },
+  brand: { type: Schema.Types.ObjectId, ref: 'Brand' },
   ageGroup: { type: String },
   stock: { type: Number, default: 0 },
   rating: { type: Number, default: 0 },
@@ -202,6 +220,7 @@ const promotionSchema = new Schema({
 // Create models
 export const User = mongoose.models.User || mongoose.model('User', userSchema);
 export const Category = mongoose.models.Category || mongoose.model('Category', categorySchema);
+export const Brand = mongoose.models.Brand || mongoose.model('Brand', brandSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
 export const CartItem = mongoose.models.CartItem || mongoose.model('CartItem', cartItemSchema);
 export const WishlistItem = mongoose.models.WishlistItem || mongoose.model('WishlistItem', wishlistItemSchema);

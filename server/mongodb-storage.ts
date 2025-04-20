@@ -560,6 +560,118 @@ export class MongoDBStorage implements IStorage {
     }
   }
 
+  // Brand-related methods
+  async getBrands(): Promise<Brand[]> {
+    try {
+      return await Brand.find({ isActive: true })
+        .sort({ name: 1 })
+        .lean();
+    } catch (error) {
+      console.error('Error fetching brands:', error);
+      return [];
+    }
+  }
+
+  async getBrandById(id: string): Promise<Brand | undefined> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const brand = await Brand.findById(id).lean();
+      return brand || undefined;
+    } catch (error) {
+      console.error('Error fetching brand by ID:', error);
+      return undefined;
+    }
+  }
+
+  async getBrandBySlug(slug: string): Promise<Brand | undefined> {
+    try {
+      const brand = await Brand.findOne({ slug, isActive: true }).lean();
+      return brand || undefined;
+    } catch (error) {
+      console.error('Error fetching brand by slug:', error);
+      return undefined;
+    }
+  }
+
+  async getProductsByBrand(brandId: string): Promise<Product[]> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(brandId)) {
+        return [];
+      }
+      
+      return await Product.find({ 
+        brand: brandId, 
+        isActive: true 
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+    } catch (error) {
+      console.error('Error fetching products by brand:', error);
+      return [];
+    }
+  }
+
+  async getFeaturedBrands(limit: number = 10): Promise<Brand[]> {
+    try {
+      return await Brand.find({ 
+        isActive: true, 
+        featured: true 
+      })
+      .sort({ name: 1 })
+      .limit(limit)
+      .lean();
+    } catch (error) {
+      console.error('Error fetching featured brands:', error);
+      return [];
+    }
+  }
+
+  async createBrand(brandData: any): Promise<Brand> {
+    try {
+      const newBrand = new Brand(brandData);
+      await newBrand.save();
+      return newBrand;
+    } catch (error) {
+      console.error('Error creating brand:', error);
+      throw error;
+    }
+  }
+
+  async updateBrand(id: string, brandData: any): Promise<Brand | undefined> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const brand = await Brand.findByIdAndUpdate(
+        id,
+        { $set: brandData },
+        { new: true }
+      ).lean();
+      
+      return brand || undefined;
+    } catch (error) {
+      console.error('Error updating brand:', error);
+      return undefined;
+    }
+  }
+
+  async deleteBrand(id: string): Promise<void> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new Error('Invalid brand ID');
+      }
+      
+      await Brand.findByIdAndDelete(id);
+    } catch (error) {
+      console.error('Error deleting brand:', error);
+      throw error;
+    }
+  }
+
   // Cart-related methods
   async getCartItems(userId: string): Promise<CartItem[]> {
     try {

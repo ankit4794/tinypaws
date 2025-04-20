@@ -85,6 +85,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch categories" });
     }
   });
+  
+  // Brand-related routes
+  app.get("/api/brands", async (req, res) => {
+    try {
+      const brands = await storageProvider.instance.getBrands();
+      res.json(brands);
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+      res.status(500).json({ message: "Failed to fetch brands" });
+    }
+  });
+
+  app.get("/api/brands/featured", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const featuredBrands = await storageProvider.instance.getFeaturedBrands(limit);
+      res.json(featuredBrands);
+    } catch (error) {
+      console.error("Error fetching featured brands:", error);
+      res.status(500).json({ message: "Failed to fetch featured brands" });
+    }
+  });
+
+  app.get("/api/brands/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const brand = await storageProvider.instance.getBrandById(id);
+      
+      if (!brand) {
+        return res.status(404).json({ message: "Brand not found" });
+      }
+      
+      res.json(brand);
+    } catch (error) {
+      console.error("Error fetching brand:", error);
+      res.status(500).json({ message: "Failed to fetch brand" });
+    }
+  });
+  
+  app.get("/api/brands/slug/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const brand = await storageProvider.instance.getBrandBySlug(slug);
+      
+      if (!brand) {
+        return res.status(404).json({ message: "Brand not found" });
+      }
+      
+      res.json(brand);
+    } catch (error) {
+      console.error("Error fetching brand by slug:", error);
+      res.status(500).json({ message: "Failed to fetch brand" });
+    }
+  });
+  
+  app.get("/api/brands/:id/products", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const products = await storageProvider.instance.getProductsByBrand(id);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching brand products:", error);
+      res.status(500).json({ message: "Failed to fetch brand products" });
+    }
+  });
 
   // Cart-related routes (for logged-in users)
   app.get("/api/cart", async (req, res) => {
