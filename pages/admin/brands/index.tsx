@@ -32,7 +32,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { AdminLayout } from '@/components/admin/layout';
+import AdminLayout from '@/components/admin/AdminLayout';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { apiRequest } from '@/lib/queryClient';
