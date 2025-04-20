@@ -44,6 +44,28 @@ export enum PromotionType {
   COUPON = 'COUPON'
 }
 
+// Define widget types
+export enum WidgetType {
+  SALES_SUMMARY = 'sales-summary',
+  RECENT_ORDERS = 'recent-orders',
+  LOW_STOCK = 'low-stock',
+  TOP_PRODUCTS = 'top-products',
+  ORDER_STATUS = 'order-status',
+  QUICK_STATS = 'quick-stats',
+  REVENUE_CHART = 'revenue-chart',
+  HELP_DESK = 'help-desk',
+  ACTIVITY_LOG = 'activity-log',
+  CATEGORY_DISTRIBUTION = 'category-distribution'
+}
+
+// Define widget sizes
+export enum WidgetSize {
+  SMALL = 'small',
+  MEDIUM = 'medium',
+  LARGE = 'large',
+  FULL = 'full'
+}
+
 // ==================== USER SCHEMA ====================
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -281,6 +303,32 @@ const userSessionSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
+// ==================== WIDGET SCHEMA ====================
+// For dashboard widgets
+const widgetPositionSchema = new mongoose.Schema({
+  x: { type: Number, required: true },
+  y: { type: Number, required: true },
+  w: { type: Number, required: true },
+  h: { type: Number, required: true },
+}, { _id: false });
+
+const widgetSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  type: { type: String, enum: Object.values(WidgetType), required: true },
+  title: { type: String, required: true },
+  size: { type: String, enum: Object.values(WidgetSize), required: true },
+  position: { type: widgetPositionSchema, required: true },
+  settings: mongoose.Schema.Types.Mixed,
+  isVisible: { type: Boolean, default: true },
+}, { _id: false });
+
+// ==================== DASHBOARD CONFIG SCHEMA ====================
+const dashboardConfigSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  widgets: [widgetSchema],
+  lastModified: { type: Date, default: Date.now },
+}, { timestamps: true });
+
 // ==================== EXPORT MODELS ====================
 // Using conditional model creation to avoid 'model overwrite error' during hot reloading
 // These model exports are for use on the server side only
@@ -289,6 +337,7 @@ const userSessionSchema = new mongoose.Schema({
 let User, Category, Product, CartItem, WishlistItem, Order, OrderItem, Review;
 let ContactSubmission, NewsletterSubscriber, HelpDeskTicket, TicketResponse;
 let CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession;
+let DashboardConfig;
 
 // Only create models on the server side where mongoose is fully initialized
 if (typeof window === 'undefined') {
@@ -311,11 +360,13 @@ if (typeof window === 'undefined') {
   ActivityLog = mongoose.models.ActivityLog || mongoose.model('ActivityLog', activityLogSchema);
   RolePermission = mongoose.models.RolePermission || mongoose.model('RolePermission', rolePermissionSchema);
   UserSession = mongoose.models.UserSession || mongoose.model('UserSession', userSessionSchema);
+  DashboardConfig = mongoose.models.DashboardConfig || mongoose.model('DashboardConfig', dashboardConfigSchema);
 }
 
 export { User, Category, Product, CartItem, WishlistItem, Order, OrderItem, Review,
   ContactSubmission, NewsletterSubscriber, HelpDeskTicket, TicketResponse,
-  CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession };
+  CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession,
+  DashboardConfig };
 
 // ==================== EXPORT ZOD SCHEMAS ====================
 // User Schema
@@ -546,6 +597,32 @@ export const insertUserSessionSchema = z.object({
   userAgent: z.string().optional().nullable(),
   expiresAt: z.date(),
   isActive: z.boolean().default(true),
+});
+
+// Widget Position Schema
+export const insertWidgetPositionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+});
+
+// Widget Schema
+export const insertWidgetSchema = z.object({
+  id: z.string(),
+  type: z.nativeEnum(WidgetType),
+  title: z.string(),
+  size: z.nativeEnum(WidgetSize),
+  position: insertWidgetPositionSchema,
+  settings: z.record(z.string(), z.any()).optional(),
+  isVisible: z.boolean().default(true),
+});
+
+// Dashboard Config Schema
+export const insertDashboardConfigSchema = z.object({
+  userId: z.string(),
+  widgets: z.array(insertWidgetSchema),
+  lastModified: z.date().default(() => new Date()),
 });
 
 // ==================== EXPORT TYPES ====================
