@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
+import { useCategories } from "@/hooks/use-categories";
 import LoginModal from "@/components/ui/LoginModal";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 const Header = () => {
   const [location] = useLocation();
@@ -12,50 +14,7 @@ const Header = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [pincode, setPincode] = useState("110001");
-
-  const categoryData = [
-    {
-      name: "Dogs",
-      path: "/products/dogs",
-      subcategories: [
-        { name: "Food", path: "/products/dogs/food" },
-        { name: "Treats", path: "/products/dogs/treats" },
-        { name: "Toys", path: "/products/dogs/toys" },
-        { name: "Accessories", path: "/products/dogs/accessories" },
-        { name: "Grooming", path: "/products/dogs/grooming" }
-      ]
-    },
-    {
-      name: "Cats",
-      path: "/products/cats",
-      subcategories: [
-        { name: "Food", path: "/products/cats/food" },
-        { name: "Litter & Accessories", path: "/products/cats/litter" },
-        { name: "Toys", path: "/products/cats/toys" },
-        { name: "Accessories", path: "/products/cats/accessories" },
-        { name: "Grooming", path: "/products/cats/grooming" }
-      ]
-    },
-    {
-      name: "Small Animals",
-      path: "/products/small-animals",
-      subcategories: [
-        { name: "Birds", path: "/products/small-animals/birds" },
-        { name: "Fish", path: "/products/small-animals/fish" },
-        { name: "Hamsters", path: "/products/small-animals/hamsters" },
-        { name: "Rabbits", path: "/products/small-animals/rabbits" }
-      ]
-    },
-    {
-      name: "Tiny Hub",
-      path: "/tiny-hub",
-      subcategories: [
-        { name: "Blogs", path: "/tiny-hub/blogs" },
-        { name: "Care Guides", path: "/tiny-hub/care-guides" },
-        { name: "Community", path: "/tiny-hub/community" }
-      ]
-    }
-  ];
+  const { parentCategories, isLoading: categoriesLoading } = useCategories();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,39 +107,60 @@ const Header = () => {
       {/* Navigation */}
       <nav className="border-t border-b border-gray-200">
         <div className="container mx-auto">
-          <ul className="flex flex-wrap justify-center md:justify-start space-x-0 md:space-x-8">
-            {categoryData.map((category, index) => (
-              <li key={index} className="group relative py-4 px-2 hover:text-orange-500">
-                <Link href={category.path} className="flex items-center">
-                  {category.name}
-                  <i className="fas fa-chevron-down ml-1 text-xs"></i>
-                </Link>
-                {/* Dropdown */}
-                <div className="absolute hidden group-hover:block z-50 mt-4 w-48 bg-white border border-gray-200 shadow-lg">
-                  <ul>
-                    {category.subcategories.map((sub, subIndex) => (
-                      <li key={subIndex}>
-                        <Link 
-                          href={sub.path} 
-                          className="block px-4 py-2 hover:bg-gray-100"
-                        >
-                          {sub.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+          {categoriesLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-black" />
+            </div>
+          ) : (
+            <ul className="flex flex-wrap justify-center md:justify-start space-x-0 md:space-x-8">
+              {parentCategories && parentCategories.length > 0 ? (
+                // Render dynamic categories from database
+                parentCategories.map((category, index) => (
+                  <li key={category._id} className="group relative py-4 px-2 hover:text-orange-500">
+                    <Link href={category.path} className="flex items-center">
+                      {category.name}
+                      {category.subcategories.length > 0 && (
+                        <i className="fas fa-chevron-down ml-1 text-xs"></i>
+                      )}
+                    </Link>
+                    {/* Dropdown for subcategories */}
+                    {category.subcategories.length > 0 && (
+                      <div className="absolute hidden group-hover:block z-50 mt-4 w-48 bg-white border border-gray-200 shadow-lg">
+                        <ul>
+                          {category.subcategories.map((sub) => (
+                            <li key={sub._id}>
+                              <Link 
+                                href={sub.path} 
+                                className="block px-4 py-2 hover:bg-gray-100"
+                              >
+                                {sub.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </li>
+                ))
+              ) : (
+                // Fallback - display fixed menu items if no categories found
+                <>
+                  <li className="py-4 px-2 hover:text-orange-500">
+                    <Link href="/products">All Products</Link>
+                  </li>
+                </>
+              )}
+              
+              {/* Fixed menu items that are always displayed */}
+              <li className="py-4 px-2 hover:text-orange-500">
+                <Link href="/store-locator">Store Locator</Link>
               </li>
-            ))}
-            
-            <li className="py-4 px-2 hover:text-orange-500">
-              <Link href="/store-locator">Store Locator</Link>
-            </li>
-            
-            <li className="py-4 px-2 hover:text-orange-500">
-              <Link href="/fresh-meals">Fresh Meals</Link>
-            </li>
-          </ul>
+              
+              <li className="py-4 px-2 hover:text-orange-500">
+                <Link href="/fresh-meals">Fresh Meals</Link>
+              </li>
+            </ul>
+          )}
         </div>
       </nav>
 
