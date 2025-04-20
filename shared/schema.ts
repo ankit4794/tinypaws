@@ -66,23 +66,41 @@ const categorySchema = new mongoose.Schema({
   type: { type: String, enum: ['shop_for', 'accessories', 'brands', 'age'] },
 }, { timestamps: true });
 
+// ==================== PRODUCT VARIANT SCHEMA ====================
+// For different weight/size/pack options
+const productVariantSchema = new mongoose.Schema({
+  name: { type: String, required: true }, // e.g., "400g", "1kg", "Pack of 6"
+  sku: { type: String, required: true },
+  price: { type: Number, required: true },
+  originalPrice: Number,
+  stock: { type: Number, default: 0 },
+  weight: Number, // weight in grams 
+  weightUnit: { type: String, enum: ['g', 'kg'] }, // gram or kilogram
+  packSize: Number, // number of items in a pack
+  isDefault: { type: Boolean, default: false }, // is this the default variant to show
+  isActive: { type: Boolean, default: true },
+}, { timestamps: true });
+
 // ==================== PRODUCT SCHEMA ====================
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   slug: { type: String, required: true, unique: true },
   description: String,
   longDescription: String,
-  price: { type: Number, required: true },
-  originalPrice: Number,
+  price: { type: Number, required: true }, // base price for default variant
+  originalPrice: Number, // base original price
   images: [String],
   features: [String],
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
   brand: String,
   ageGroup: String,
-  stock: { type: Number, default: 0 },
+  stock: { type: Number, default: 0 }, // total stock across all variants
   rating: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
+  hasVariants: { type: Boolean, default: false }, // does this product have variants?
+  variantType: { type: String, enum: ['weight', 'pack', 'none'], default: 'none' }, // what type of variants?
+  variants: [productVariantSchema], // nested array of variants
 }, { timestamps: true });
 
 // ==================== CART ITEM SCHEMA ====================
@@ -92,6 +110,9 @@ const cartItemSchema = new mongoose.Schema({
   quantity: { type: Number, default: 1 },
   selectedColor: String,
   selectedSize: String,
+  selectedVariantId: String, // ID of the selected product variant
+  selectedVariantName: String, // Name of the selected variant (e.g., "400g", "Pack of 6")
+  variantPrice: Number, // Price of the selected variant at the time it was added to cart
 }, { timestamps: true });
 
 // ==================== WISHLIST ITEM SCHEMA ====================
@@ -120,6 +141,8 @@ const orderItemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   selectedColor: String,
   selectedSize: String,
+  selectedVariantId: String, // ID of the selected product variant
+  selectedVariantName: String, // Name of the selected variant (e.g., "400g", "Pack of 6")
 }, { timestamps: true });
 
 // ==================== REVIEW SCHEMA ====================
@@ -303,6 +326,20 @@ export const insertCategorySchema = z.object({
   type: z.string().optional().nullable(),
 });
 
+// Product Variant Schema
+export const insertProductVariantSchema = z.object({
+  name: z.string().min(1, 'Name must not be empty'),
+  sku: z.string().min(3, 'SKU must be at least 3 characters'),
+  price: z.number().min(0, 'Price must be a positive number'),
+  originalPrice: z.number().optional().nullable(),
+  stock: z.number().default(0),
+  weight: z.number().optional().nullable(),
+  weightUnit: z.enum(['g', 'kg']).optional().nullable(),
+  packSize: z.number().optional().nullable(),
+  isDefault: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+});
+
 // Product Schema
 export const insertProductSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -318,6 +355,9 @@ export const insertProductSchema = z.object({
   ageGroup: z.string().optional().nullable(),
   stock: z.number().default(0),
   isActive: z.boolean().default(true),
+  hasVariants: z.boolean().default(false),
+  variantType: z.enum(['weight', 'pack', 'none']).default('none'),
+  variants: z.array(insertProductVariantSchema).optional().default([]),
 });
 
 // CartItem Schema
@@ -327,6 +367,9 @@ export const insertCartItemSchema = z.object({
   quantity: z.number().min(1).default(1),
   selectedColor: z.string().optional().nullable(),
   selectedSize: z.string().optional().nullable(),
+  selectedVariantId: z.string().optional().nullable(),
+  selectedVariantName: z.string().optional().nullable(),
+  variantPrice: z.number().optional().nullable(),
 });
 
 // WishlistItem Schema
@@ -354,6 +397,8 @@ export const insertOrderItemSchema = z.object({
   price: z.number().min(0),
   selectedColor: z.string().optional().nullable(),
   selectedSize: z.string().optional().nullable(),
+  selectedVariantId: z.string().optional().nullable(),
+  selectedVariantName: z.string().optional().nullable(),
 });
 
 // Review Schema
