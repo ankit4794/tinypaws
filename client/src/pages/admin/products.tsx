@@ -100,7 +100,7 @@ export default function AdminProductsPage() {
       features: [],
       category: "",
       brand: "",
-      ageGroup: "",
+      ageGroup: "none",
       stock: 0,
       isActive: true,
       hasVariants: false,
@@ -122,7 +122,7 @@ export default function AdminProductsPage() {
       features: [],
       category: "",
       brand: "",
-      ageGroup: "",
+      ageGroup: "none",
       stock: 0,
       isActive: true,
       hasVariants: false,
@@ -506,7 +506,7 @@ export default function AdminProductsPage() {
                           <FormLabel>Age Group</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value || ""}
+                            defaultValue={field.value || "none"}
                           >
                             <FormControl>
                               <SelectTrigger>
