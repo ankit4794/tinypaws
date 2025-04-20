@@ -39,6 +39,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { AdminLayout } from "@/components/admin/layout";
 
 // Schema for category form
 const categorySchema = z.object({
@@ -262,15 +263,16 @@ export default function CategoriesManagement() {
   const useHierarchicalView = searchQuery === "";
 
   return (
-    <div className="container mx-auto py-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-2xl font-bold">Categories Management</CardTitle>
-          <Button onClick={openAddDialog}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Category
-          </Button>
-        </CardHeader>
+    <AdminLayout>
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-2xl font-bold">Categories Management</CardTitle>
+            <Button onClick={openAddDialog}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Category
+            </Button>
+          </CardHeader>
         <CardContent>
           <div className="mb-4 flex items-center gap-2">
             <div className="relative flex-1">
@@ -724,5 +726,6 @@ export default function CategoriesManagement() {
         </DialogContent>
       </Dialog>
     </div>
+    </AdminLayout>
   );
 }
