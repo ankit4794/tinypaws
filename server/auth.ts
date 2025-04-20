@@ -63,33 +63,37 @@ export function setupAuth(app: Express) {
 
   passport.serializeUser((user: any, done) => {
     try {
-      // For MongoDB user objects, safely extract only the necessary data for session
-      const userData = typeof user.toObject === 'function' 
-        ? user.toObject() 
-        : user;
-      
-      // Strip down the user to only essential properties to avoid circular references
-      const safeUser = {
-        id: userData._id || userData.id,
-        username: userData.username || userData.email,
-        email: userData.email,
-        role: userData.role,
-      };
-      
-      done(null, safeUser.id);
+      // Just serialize the user ID for the session
+      const userId = user._id || user.id;
+      console.log(`Serializing user with ID: ${userId}`);
+      done(null, userId);
     } catch (error) {
+      console.error('Error in serializeUser:', error);
       done(error);
     }
   });
   
   passport.deserializeUser(async (id: string, done) => {
     try {
+      console.log(`Deserializing user with ID: ${id}`);
       const user = await storageProvider.instance.getUser(id);
-      // Convert MongoDB document to plain object if method exists
-      const userData = user && typeof user.toObject === 'function' 
-        ? user.toObject() 
-        : user;
-      done(null, userData);
+      
+      if (!user) {
+        console.log(`User not found for ID: ${id}`);
+        return done(null, null);
+      }
+      
+      // Create a plain object with just the essential fields for safety
+      const safeUser = {
+        id: user._id || user.id, 
+        _id: user._id || user.id,
+        email: user.email,
+        username: user.username || user.email,
+        fullName: user.fullName,
+        role: user.role
+      };
+      
+      done(null, safeUser);
     } catch (error) {
       done(error);
     }

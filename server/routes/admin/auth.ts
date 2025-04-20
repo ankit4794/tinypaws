@@ -43,28 +43,33 @@ router.post('/login', async (req: Request, res: Response) => {
     
     console.log(`Password valid for: ${email}, attempting to login with Passport`);
     
-    // Convert mongoose document to a plain object before login
-    const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
+    // Convert the Mongoose document to a plain object
+    const userDoc = typeof user.toObject === 'function' ? user.toObject() : user;
     
-    // Create a simplified user object to avoid serialization issues
-    const safeUser = {
-      id: userObj._id || userObj.id,
-      _id: userObj._id || userObj.id, // Include both formats for compatibility
-      email: userObj.email,
-      username: userObj.username || userObj.email,
-      fullName: userObj.fullName,
-      role: userObj.role
-    };
+    // Remove any MongoDB-specific properties that might cause serialization issues
+    const { password: storedPassword, ...userWithoutPassword } = userDoc;
     
-    // Login the user using Passport
-    req.login(safeUser, (err) => {
+    // Keep only the essential user data and stringify/parse to ensure it's a clean object
+    const strippedUser = JSON.parse(JSON.stringify({
+      id: userWithoutPassword._id,
+      _id: userWithoutPassword._id,
+      email: userWithoutPassword.email,
+      username: userWithoutPassword.username || userWithoutPassword.email,
+      fullName: userWithoutPassword.fullName,
+      role: userWithoutPassword.role
+    }));
+    
+    // Login the user using Passport - use the stripped user object for login
+    req.login(strippedUser, (err) => {
       if (err) {
         console.error(`Login error in req.login: ${err.message}`);
         return res.status(500).json({ error: `Login failed: ${err.message}` });
       }
       
       console.log(`Admin login successful for: ${email}`);
-      res.status(200).json(safeUser);
+      
+      // Return the safe user object (not attached to session)
+      res.status(200).json(strippedUser);
     });
   } catch (error) {
     console.error('Admin login error:', error);
@@ -95,7 +100,7 @@ router.get('/user', requireAdmin, (req: Request, res: Response) => {
     : req.user;
     
   // Remove password from response
-  const { password, ...userWithoutPassword } = userObj;
+  const { password: userPassword, ...userWithoutPassword } = userObj;
   res.status(200).json(userWithoutPassword);
 });
 

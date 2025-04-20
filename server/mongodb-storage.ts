@@ -247,7 +247,38 @@ export class MongoDBStorage implements IStorage {
   // User-related methods
   async getUser(id: string): Promise<User | undefined> {
     try {
-      const user = await User.findById(id).lean();
+      console.log(`MongoDB storage: Fetching user with ID: ${id}`);
+      
+      // Handle both ObjectId and string IDs
+      if (!id) {
+        console.log('Invalid user ID: empty or undefined');
+        return undefined;
+      }
+      
+      // Try to find by ID first (checking if it's a valid ObjectId)
+      let user = null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        user = await User.findById(id).lean();
+      }
+      
+      // If not found by ID, try to find by other possible identifiers
+      if (!user) {
+        user = await User.findOne({
+          $or: [
+            { _id: id },
+            { id: id },
+            { username: id },
+            { email: id }
+          ]
+        }).lean();
+      }
+      
+      if (user) {
+        console.log(`User found with ID: ${id}, username: ${user.username || user.email}`);
+      } else {
+        console.log(`No user found with ID: ${id}`);
+      }
+      
       return user || undefined;
     } catch (error) {
       console.error('Error fetching user:', error);
