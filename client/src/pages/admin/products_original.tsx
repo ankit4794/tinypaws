@@ -420,7 +420,7 @@ export default function AdminProductsPage() {
                           <FormLabel>Category*</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value || ""}
+                            defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -688,7 +688,7 @@ export default function AdminProductsPage() {
                           <FormLabel>Variant Type</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value || "weight"}
+                            defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
