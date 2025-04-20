@@ -1,3 +1,12 @@
 // This is a minimal file to satisfy the Vite server
 // In our new architecture, we're using Next.js instead of Vite for the frontend
-console.log("TinyPaws is now using Next.js - please visit the Next.js server at port 3000");
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
