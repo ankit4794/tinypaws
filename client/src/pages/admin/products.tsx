@@ -172,7 +172,7 @@ export default function AdminProductsPage() {
       features: product.features || [],
       category: product.category?._id || product.category,
       brand: product.brand || "",
-      ageGroup: product.ageGroup || "",
+      ageGroup: product.ageGroup || "none",
       stock: product.stock || 0,
       isActive: product.isActive !== false, // Default to true
       hasVariants: product.hasVariants || false,
