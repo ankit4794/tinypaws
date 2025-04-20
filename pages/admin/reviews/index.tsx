@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
-import { User, Search, Trash2, Plus, Send, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, X, Trash2, Star, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { withAdminRoute } from '@/lib/protected-route';
@@ -45,41 +46,35 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 
-// Newsletter subscriber type
-interface NewsletterSubscriber {
+// Review type definition
+interface Review {
   _id: string;
-  email: string;
-  active: boolean;
+  title: string;
+  content: string;
+  rating: number;
+  status: 'pending' | 'approved' | 'rejected';
+  product: {
+    _id: string;
+    name: string;
+    slug: string;
+    images: string[];
+  };
+  user: {
+    _id: string;
+    username: string;
+    email: string;
+    fullName: string;
+  };
   createdAt: string;
+  updatedAt: string;
 }
 
-interface SubscribersResponse {
-  subscribers: NewsletterSubscriber[];
+interface ReviewsResponse {
+  reviews: Review[];
   pagination: {
     total: number;
     page: number;
@@ -88,38 +83,24 @@ interface SubscribersResponse {
   };
 }
 
-// Form schema for adding a subscriber
-const addSubscriberSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address' }),
-});
-
-const NewsletterPage = () => {
+const ReviewsPage = () => {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
   
   // State for filters and pagination
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(10);
   const [status, setStatus] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Form for adding a subscriber
-  const form = useForm<z.infer<typeof addSubscriberSchema>>({
-    resolver: zodResolver(addSubscriberSchema),
-    defaultValues: {
-      email: '',
-    },
-  });
-
-  // Get subscribers data
+  // Get reviews data
   const {
-    data: subscribersData,
+    data: reviewsData,
     isLoading,
     error,
-  } = useQuery<SubscribersResponse>({
-    queryKey: ['/api/admin/newsletter', page, limit, status, searchTerm],
+  } = useQuery<ReviewsResponse>({
+    queryKey: ['/api/admin/reviews', page, limit, status, searchTerm],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       searchParams.append('page', page.toString());
@@ -128,74 +109,77 @@ const NewsletterPage = () => {
       if (status) searchParams.append('status', status);
       if (searchTerm) searchParams.append('search', searchTerm);
       
-      const res = await fetch(`/api/admin/newsletter?${searchParams.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch subscribers');
+      const res = await fetch(`/api/admin/reviews?${searchParams.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch reviews');
       return res.json();
     }
   });
 
-  // Add subscriber mutation
-  const addSubscriberMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof addSubscriberSchema>) => {
+  // Approve/Reject review mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ reviewId, status }: { reviewId: string, status: string }) => {
       const response = await apiRequest(
-        'POST',
-        '/api/admin/newsletter',
-        data
+        'PUT',
+        '/api/admin/reviews',
+        { reviewId, status }
       );
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/newsletter'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/reviews'] });
       toast({
-        title: 'Subscriber Added',
-        description: 'The email has been added to the newsletter list',
+        title: 'Review Updated',
+        description: 'Review status has been updated successfully',
       });
-      setAddDialogOpen(false);
-      form.reset();
     },
     onError: (error: Error) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to add subscriber',
+        description: error.message || 'Failed to update review status',
         variant: 'destructive',
       });
     },
   });
 
-  // Delete subscriber mutation
-  const deleteSubscriberMutation = useMutation({
-    mutationFn: async (subscriberId: string) => {
+  // Delete review mutation
+  const deleteReviewMutation = useMutation({
+    mutationFn: async (reviewId: string) => {
       const response = await apiRequest(
         'DELETE',
-        '/api/admin/newsletter',
-        { subscriberId }
+        '/api/admin/reviews',
+        { reviewId }
       );
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/newsletter'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/reviews'] });
       toast({
-        title: 'Subscriber Deleted',
-        description: 'The email has been removed from the newsletter list',
+        title: 'Review Deleted',
+        description: 'Review has been deleted successfully',
       });
     },
     onError: (error: Error) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete subscriber',
+        description: error.message || 'Failed to delete review',
         variant: 'destructive',
       });
     },
   });
 
-  // Handle submit for adding a subscriber
-  const onSubmit = (data: z.infer<typeof addSubscriberSchema>) => {
-    addSubscriberMutation.mutate(data);
+  // Handle approve review
+  const handleApprove = (reviewId: string) => {
+    updateStatusMutation.mutate({ reviewId, status: 'approved' });
   };
 
-  // Handle delete subscriber
-  const handleDelete = (subscriberId: string) => {
-    deleteSubscriberMutation.mutate(subscriberId);
+  // Handle reject review
+  const handleReject = (reviewId: string) => {
+    updateStatusMutation.mutate({ reviewId, status: 'rejected' });
+  };
+
+  // Handle delete review
+  const handleDelete = (reviewId: string) => {
+    deleteReviewMutation.mutate(reviewId);
   };
 
   // Pagination controls
@@ -204,110 +188,66 @@ const NewsletterPage = () => {
   };
 
   const handleNextPage = () => {
-    if (subscribersData && page < subscribersData.pagination.totalPages) {
+    if (reviewsData && page < reviewsData.pagination.totalPages) {
       setPage(page + 1);
+    }
+  };
+
+  // Render stars for rating
+  const renderStars = (rating: number) => {
+    return Array(5)
+      .fill(0)
+      .map((_, index) => (
+        <Star
+          key={index}
+          className={`h-4 w-4 ${
+            index < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
+          }`}
+        />
+      ));
+  };
+
+  // Status badge color
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-500">Approved</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-500">Rejected</Badge>;
+      default:
+        return <Badge className="bg-yellow-500">Pending</Badge>;
     }
   };
 
   return (
     <>
       <Head>
-        <title>Newsletter Management | TinyPaws Admin</title>
+        <title>Manage Reviews | TinyPaws Admin</title>
       </Head>
       <AdminLayout>
         <div className="container mx-auto py-6">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Newsletter Subscribers</h1>
-            <div className="flex space-x-2">
-              <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Subscriber
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add Newsletter Subscriber</DialogTitle>
-                    <DialogDescription>
-                      Add a new email address to the newsletter list. The subscriber will be active immediately.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input placeholder="subscriber@example.com" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              Enter a valid email address
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <DialogFooter>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => setAddDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          type="submit"
-                          disabled={addSubscriberMutation.isPending}
-                        >
-                          {addSubscriberMutation.isPending ? (
-                            <>
-                              <span className="mr-2">Adding...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Subscriber
-                            </>
-                          )}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
-              <Button variant="outline">
-                <Send className="h-4 w-4 mr-2" />
-                Send Newsletter
-              </Button>
-            </div>
+            <h1 className="text-3xl font-bold">Manage Reviews</h1>
           </div>
 
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Filter Subscribers</CardTitle>
+              <CardTitle>Filter Reviews</CardTitle>
               <CardDescription>
-                Use the filters below to find specific subscribers
+                Use the filters below to find specific reviews
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-1 block">
-                    Search by Email
+                    Search by Product or User
                   </label>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
+                  <Input
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">
@@ -322,8 +262,9 @@ const NewsletterPage = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All Statuses</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -336,13 +277,13 @@ const NewsletterPage = () => {
                     onValueChange={(value) => setLimit(parseInt(value))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="20" />
+                      <SelectValue placeholder="10" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
                       <SelectItem value="10">10</SelectItem>
                       <SelectItem value="20">20</SelectItem>
                       <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -352,6 +293,7 @@ const NewsletterPage = () => {
               <Button 
                 onClick={() => {
                   setPage(1);
+                  // Reset all filters
                   setSearchTerm('');
                   setStatus('');
                 }}
@@ -373,9 +315,9 @@ const NewsletterPage = () => {
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center justify-center text-center p-6">
                   <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Failed to load subscribers</h3>
+                  <h3 className="text-xl font-semibold mb-2">Failed to load reviews</h3>
                   <p className="text-muted-foreground mb-4">
-                    There was an error loading the newsletter subscribers. Please try again later.
+                    There was an error loading the reviews. Please try again later.
                   </p>
                   <Button onClick={() => router.reload()}>Retry</Button>
                 </div>
@@ -388,46 +330,101 @@ const NewsletterPage = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Email</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Review</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Date Subscribed</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {subscribersData?.subscribers.length === 0 ? (
+                      {reviewsData?.reviews.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8">
-                            No subscribers found
+                          <TableCell colSpan={7} className="text-center py-8">
+                            No reviews found
                           </TableCell>
                         </TableRow>
                       ) : (
-                        subscribersData?.subscribers.map((subscriber) => (
-                          <TableRow key={subscriber._id}>
+                        reviewsData?.reviews.map((review) => (
+                          <TableRow key={review._id}>
                             <TableCell>
                               <div className="flex items-center space-x-3">
-                                <User className="h-5 w-5 text-muted-foreground" />
-                                <span>{subscriber.email}</span>
+                                {review.product.images && review.product.images[0] ? (
+                                  <img
+                                    src={review.product.images[0]}
+                                    alt={review.product.name}
+                                    className="h-10 w-10 rounded-md object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center">
+                                    <AlertCircle className="h-5 w-5 text-gray-500" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium line-clamp-1">
+                                    <Link 
+                                      href={`/product/${review.product.slug}`}
+                                      className="hover:underline"
+                                    >
+                                      {review.product.name}
+                                    </Link>
+                                  </p>
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              {subscriber.active ? (
-                                <Badge className="bg-green-500">Active</Badge>
-                              ) : (
-                                <Badge variant="outline">Inactive</Badge>
-                              )}
+                              <div>
+                                <p className="font-medium">{review.user.fullName || review.user.username}</p>
+                                <p className="text-sm text-muted-foreground">{review.user.email}</p>
+                              </div>
                             </TableCell>
                             <TableCell>
-                              {format(new Date(subscriber.createdAt), 'MMM dd, yyyy')}
+                              <div className="flex">
+                                {renderStars(review.rating)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <p className="font-medium">{review.title}</p>
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {review.content}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(review.createdAt), 'MMM dd, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(review.status)}
                             </TableCell>
                             <TableCell>
                               <div className="flex space-x-2">
+                                {review.status !== 'approved' && (
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-500 hover:bg-green-600"
+                                    onClick={() => handleApprove(review._id)}
+                                    disabled={updateStatusMutation.isPending}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {review.status !== 'rejected' && (
+                                  <Button
+                                    size="sm"
+                                    className="bg-amber-500 hover:bg-amber-600"
+                                    onClick={() => handleReject(review._id)}
+                                    disabled={updateStatusMutation.isPending}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button
                                       size="sm"
                                       variant="destructive"
-                                      disabled={deleteSubscriberMutation.isPending}
+                                      disabled={deleteReviewMutation.isPending}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -436,13 +433,14 @@ const NewsletterPage = () => {
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently remove {subscriber.email} from your newsletter subscribers list.
+                                        This action cannot be undone. This will permanently delete the
+                                        review and remove it from our servers.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                                       <AlertDialogAction
-                                        onClick={() => handleDelete(subscriber._id)}
+                                        onClick={() => handleDelete(review._id)}
                                         className="bg-red-500 hover:bg-red-600"
                                       >
                                         Delete
@@ -458,12 +456,12 @@ const NewsletterPage = () => {
                     </TableBody>
                   </Table>
                 </CardContent>
-                {subscribersData && subscribersData.pagination.total > 0 && (
+                {reviewsData && reviewsData.pagination.total > 0 && (
                   <CardFooter className="flex items-center justify-between border-t p-4">
                     <div className="text-sm text-muted-foreground">
                       Showing {(page - 1) * limit + 1} to{" "}
-                      {Math.min(page * limit, subscribersData.pagination.total)} of{" "}
-                      {subscribersData.pagination.total} subscribers
+                      {Math.min(page * limit, reviewsData.pagination.total)} of{" "}
+                      {reviewsData.pagination.total} reviews
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
@@ -479,7 +477,7 @@ const NewsletterPage = () => {
                         size="sm"
                         variant="outline"
                         onClick={handleNextPage}
-                        disabled={page >= subscribersData.pagination.totalPages}
+                        disabled={page >= reviewsData.pagination.totalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
                         <span className="sr-only">Next Page</span>
@@ -496,7 +494,7 @@ const NewsletterPage = () => {
   );
 };
 
-export default withAdminRoute(NewsletterPage);
+export default withAdminRoute(ReviewsPage);
 
 export const getServerSideProps: GetServerSideProps = async () => {
   return {
