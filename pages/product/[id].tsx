@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
-import { Helmet } from "react-helmet";
+import { useRouter } from "next/router";
+import Head from "next/head";
 import { Product } from "@shared/schema";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +13,8 @@ import QuickViewModal from "@/components/ui/QuickViewModal";
 import { useProduct, useProducts } from "@/hooks/use-products";
 
 const ProductDetailPage = () => {
-  const { id } = useParams();
+  const router = useRouter();
+  const { id } = router.query;
   const { addToCart } = useCart();
   const { toast } = useToast();
   const [selectedColor, setSelectedColor] = useState<string>("red");
@@ -27,7 +28,7 @@ const ProductDetailPage = () => {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   // Use our custom hook with caching for the product
-  const { data: product, isLoading, error } = useProduct(id);
+  const { data: product, isLoading, error } = useProduct(id as string);
 
   // Use our custom hook for similar products with caching
   const { data: similarProducts, isLoading: isLoadingSimilar } = useProducts({
@@ -91,12 +92,11 @@ const ProductDetailPage = () => {
     setIsCheckingDelivery(true);
     
     try {
-      // This would be an API call in production
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Make API call to check delivery
+      const response = await fetch(`/api/pincode?pincode=${pincode}`);
+      const data = await response.json();
       
-      // Simple logic for demo: even last digit means deliverable
-      const lastDigit = parseInt(pincode.slice(-1));
-      setIsDeliverable(lastDigit % 2 === 0);
+      setIsDeliverable(data.isDeliverable);
     } catch (error) {
       toast({
         title: "Error",
@@ -163,10 +163,10 @@ const ProductDetailPage = () => {
 
   return (
     <>
-      <Helmet>
+      <Head>
         <title>{`${product.name} | TinyPaws`}</title>
         <meta name="description" content={product.description} />
-      </Helmet>
+      </Head>
 
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumbs */}
@@ -199,7 +199,7 @@ const ProductDetailPage = () => {
               />
             </div>
             <div className="grid grid-cols-5 gap-2">
-              {product.images.map((image, index) => (
+              {product.images && product.images.map((image, index) => (
                 <div 
                   key={index}
                   className={`rounded-lg overflow-hidden border ${activeImage === image ? 'border-black' : 'border-gray-200'} hover:border-black cursor-pointer`}
@@ -221,9 +221,9 @@ const ProductDetailPage = () => {
             
             <div className="flex items-center mb-4">
               <div className="flex items-center">
-                {renderStars(product.rating)}
+                {renderStars(product.rating || 0)}
               </div>
-              <span className="text-sm text-gray-500 ml-2">({product.reviewCount} reviews)</span>
+              <span className="text-sm text-gray-500 ml-2">({product.reviewCount || 0} reviews)</span>
             </div>
             
             <div className="mb-6">
@@ -411,115 +411,87 @@ const ProductDetailPage = () => {
             </TabsContent>
             <TabsContent value="reviews" className="py-6">
               <div className="prose max-w-none">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-semibold">Customer Reviews</h3>
-                  <Button>Write a Review</Button>
-                </div>
-                
-                <div className="flex items-center mb-6">
-                  <div className="mr-4">
-                    <div className="text-3xl font-bold">{product.rating.toFixed(1)}</div>
-                    <div className="flex">
-                      {renderStars(product.rating)}
+                <h3 className="text-xl font-semibold mb-4">Customer Reviews</h3>
+                <div className="mb-8">
+                  <div className="flex items-center mb-2">
+                    <div className="flex items-center mr-4">
+                      {renderStars(product.rating || 0)}
                     </div>
-                    <div className="text-sm text-gray-500">{product.reviewCount} reviews</div>
+                    <span className="text-sm">Based on {product.reviewCount || 0} reviews</span>
                   </div>
-                  
-                  <div className="flex-grow">
-                    {/* Rating Bars */}
-                    {[5, 4, 3, 2, 1].map(star => (
-                      <div key={star} className="flex items-center mb-1">
-                        <span className="text-sm w-10">{star} star</span>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mx-2">
-                          <div 
-                            className="bg-yellow-400 h-2.5 rounded-full" 
-                            style={{ width: `${star === 5 ? 70 : star === 4 ? 20 : star === 3 ? 7 : star === 2 ? 2 : 1}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm w-10">{star === 5 ? 70 : star === 4 ? 20 : star === 3 ? 7 : star === 2 ? 2 : 1}%</span>
-                      </div>
-                    ))}
-                  </div>
+                  <Button variant="outline">Write a Review</Button>
                 </div>
                 
-                {/* Sample Reviews */}
+                {/* Sample Reviews - would be dynamic in production */}
                 <div className="space-y-6">
-                  <div className="border-b pb-6">
-                    <div className="flex justify-between mb-2">
-                      <h4 className="font-medium">Rahul K.</h4>
-                      <span className="text-sm text-gray-500">2 weeks ago</span>
+                  <div className="border-b pb-4">
+                    <div className="flex items-center mb-2">
+                      <div className="flex items-center mr-2">
+                        {renderStars(5)}
+                      </div>
+                      <span className="font-medium">Great product!</span>
                     </div>
-                    <div className="flex mb-2">
-                      {renderStars(5)}
-                    </div>
-                    <p>Great product! My dog loves it. The quality is excellent and it's very durable. Would definitely recommend to other pet owners.</p>
+                    <p className="text-sm text-gray-600 mb-2">By John D. on April 12, 2025</p>
+                    <p>My dog absolutely loves this. The quality is excellent and it's very durable. Highly recommend!</p>
                   </div>
                   
-                  <div className="border-b pb-6">
-                    <div className="flex justify-between mb-2">
-                      <h4 className="font-medium">Priya S.</h4>
-                      <span className="text-sm text-gray-500">1 month ago</span>
+                  <div className="border-b pb-4">
+                    <div className="flex items-center mb-2">
+                      <div className="flex items-center mr-2">
+                        {renderStars(4)}
+                      </div>
+                      <span className="font-medium">Good value</span>
                     </div>
-                    <div className="flex mb-2">
-                      {renderStars(4)}
-                    </div>
-                    <p>Really good quality product. My pet enjoys it a lot. The only reason I'm giving 4 stars is because the color is slightly different from what was shown online.</p>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <h4 className="font-medium">Ananya J.</h4>
-                      <span className="text-sm text-gray-500">2 months ago</span>
-                    </div>
-                    <div className="flex mb-2">
-                      {renderStars(5)}
-                    </div>
-                    <p>Excellent product and very fast delivery! My cat absolutely loves it. The material is high-quality and seems very durable. Will definitely be ordering more products from TinyPaws!</p>
+                    <p className="text-sm text-gray-600 mb-2">By Sarah M. on March 28, 2025</p>
+                    <p>Nice product for the price. My puppy enjoys it. Taking off one star because it's smaller than expected.</p>
                   </div>
                 </div>
               </div>
             </TabsContent>
             <TabsContent value="shipping" className="py-6">
               <div className="prose max-w-none">
-                <h3 className="text-xl font-semibold mb-4">Shipping & Returns</h3>
+                <h3 className="text-xl font-semibold mb-4">Shipping Information</h3>
+                <p>We deliver across India. Shipping time depends on your location:</p>
+                <ul>
+                  <li>Metro cities: 2-3 business days</li>
+                  <li>Other cities: 3-5 business days</li>
+                  <li>Remote areas: 5-7 business days</li>
+                </ul>
                 
-                <h4 className="font-medium mt-6 mb-2">Shipping Policy</h4>
-                <p>We offer free shipping on orders above ₹999. Standard delivery takes 2-5 business days depending on your location. For select pincode areas, we also offer express delivery within 24-48 hours at an additional cost.</p>
-                
-                <h4 className="font-medium mt-6 mb-2">Return Policy</h4>
-                <p>If you're not completely satisfied with your purchase, you can return it within 7 days of delivery. The product must be unused and in its original packaging. Please note that shipping charges for returns are borne by the customer unless the return is due to a defect or error on our part.</p>
-                
-                <h4 className="font-medium mt-6 mb-2">Refund Policy</h4>
-                <p>Once we receive and inspect the returned item, we will process your refund. The refund will be credited back to your original payment method within 5-7 business days.</p>
+                <h3 className="text-xl font-semibold mt-6 mb-4">Return Policy</h3>
+                <p>If you're not completely satisfied with your purchase, you can return it within 15 days of delivery. Please note that the product must be unused and in its original packaging.</p>
+                <p>To initiate a return, please contact our customer support with your order details.</p>
               </div>
             </TabsContent>
           </Tabs>
         </div>
 
         {/* Similar Products */}
-        {similarProducts && similarProducts.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">You May Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {isLoadingSimilar ? (
-                Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="h-64 bg-gray-100 animate-pulse rounded-lg"></div>
-                ))
-              ) : (
-                similarProducts.slice(0, 4).map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))
-              )}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">You May Also Like</h2>
+          {isLoadingSimilar ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-black" />
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {similarProducts?.map((similar) => (
+                <ProductCard
+                  key={similar._id}
+                  product={similar}
+                  onQuickView={() => handleQuickView(similar)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Quick View Modal */}
       {showQuickView && quickViewProduct && (
-        <QuickViewModal 
-          product={quickViewProduct} 
-          onClose={() => setShowQuickView(false)} 
+        <QuickViewModal
+          product={quickViewProduct}
+          onClose={() => setShowQuickView(false)}
         />
       )}
     </>
