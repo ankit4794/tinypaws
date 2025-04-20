@@ -1,66 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
-import { getQueryFn } from "@/lib/queryClient";
 
 export interface Category {
   _id: string;
   name: string;
   slug: string;
-  parentId?: string | null;
+  type: string;
+  forPet: string;
   description?: string;
   image?: string;
+  displayOrder?: number;
   isActive: boolean;
-  type?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface CategoryWithSubcategories extends Category {
-  subcategories: Category[];
-  path: string;
+  subCategories?: Category[];
 }
 
 export function useCategories() {
-  const {
-    data: categories = [],
-    isLoading,
-    isError,
-    error,
-  } = useQuery<Category[]>({
+  return useQuery<Category[]>({
     queryKey: ["/api/categories"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
   });
-
-  // Create a more useful hierarchical structure for the frontend
-  const parentCategories = categories
-    .filter((category) => !category.parentId && category.isActive)
-    .map((category) => {
-      const subcategories = categories.filter(
-        (sub) => sub.parentId === category._id && sub.isActive
-      );
-      
-      return {
-        ...category,
-        path: `/products/${category.slug}`,
-        subcategories: subcategories.map((sub) => ({
-          ...sub,
-          path: `/products/${category.slug}/${sub.slug}`,
-        })),
-      };
-    });
-
-  return {
-    categories,
-    parentCategories,
-    isLoading,
-    isError,
-    error,
-  };
 }
 
-// Helper to get properly formatted path for a category
-export function getCategoryPath(category: Category, parentSlug?: string): string {
-  if (parentSlug) {
-    return `/products/${parentSlug}/${category.slug}`;
-  }
+export function getMainCategories(categories: Category[] | undefined) {
+  if (!categories) return [];
+  
+  return categories.filter(cat => 
+    cat.type === 'shop_for' && cat.isActive
+  ).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+}
+
+export function getCategoryPath(category: Category): string {
   return `/products/${category.slug}`;
 }
