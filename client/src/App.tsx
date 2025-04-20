@@ -23,6 +23,7 @@ import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 // Import admin pages
 import AdminLoginPage from "./pages/admin/login-page";
 import AdminDashboard from "./pages/admin/index";
+import AdminDashboardPage from "./pages/admin/dashboard";
 import HelpDeskPage from "./pages/admin/help-desk";
 import PincodesPage from "./pages/admin/pincodes";
 import ReviewsPage from "./pages/admin/reviews";
@@ -48,6 +49,7 @@ function Router() {
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLoginPage} />
       <AdminProtectedRoute path="/admin" component={AdminDashboard} />
+      <AdminProtectedRoute path="/admin/dashboard" component={AdminDashboardPage} />
       <AdminProtectedRoute path="/admin/help-desk" component={HelpDeskPage} />
       <AdminProtectedRoute path="/admin/pincodes" component={PincodesPage} />
       <AdminProtectedRoute path="/admin/reviews" component={ReviewsPage} />

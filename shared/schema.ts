@@ -316,7 +316,6 @@ const widgetSchema = new mongoose.Schema({
   id: { type: String, required: true },
   type: { type: String, enum: Object.values(WidgetType), required: true },
   title: { type: String, required: true },
-  size: { type: String, enum: Object.values(WidgetSize), required: true },
   position: { type: widgetPositionSchema, required: true },
   settings: mongoose.Schema.Types.Mixed,
   isVisible: { type: Boolean, default: true },
