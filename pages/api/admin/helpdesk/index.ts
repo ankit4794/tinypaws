@@ -1,58 +1,52 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { isAdmin } from '@/middleware/auth';
 import mongoose from 'mongoose';
+import { isAdmin } from '@/middleware/auth';
 
-// Since we don't have a helpdesk model yet, let's create a simple schema here
-// In a real application, this would be in the models directory
-const helpdeskSchema = new mongoose.Schema({
-  ticketId: { type: String, required: true, unique: true },
-  customer: {
+// Create a Helpdesk Ticket model if it doesn't exist already in models
+let HelpdeskTicket;
+try {
+  HelpdeskTicket = mongoose.model('HelpdeskTicket');
+} catch {
+  const helpdeskTicketSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true },
-    phone: { type: String },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-  },
-  subject: { type: String, required: true },
-  message: { type: String, required: true },
-  status: { 
-    type: String, 
-    required: true,
-    enum: ['new', 'open', 'pending', 'resolved', 'closed'],
-    default: 'new'
-  },
-  priority: {
-    type: String,
-    required: true,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
-  },
-  department: {
-    type: String,
-    required: true,
-    enum: ['general', 'sales', 'support', 'technical', 'billing'],
-    default: 'general'
-  },
-  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  replies: [{
+    subject: { type: String, required: true },
     message: { type: String, required: true },
-    sentBy: { type: String, required: true, enum: ['customer', 'staff'] },
-    staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    timestamp: { type: Date, default: Date.now }
-  }],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
-
-// Add the model to mongoose models if it doesn't exist
-const Helpdesk = mongoose.models.Helpdesk || mongoose.model('Helpdesk', helpdeskSchema);
+    status: { 
+      type: String, 
+      enum: ['new', 'in-progress', 'resolved', 'closed'],
+      default: 'new'
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'urgent'],
+      default: 'medium'
+    },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    replies: [{
+      message: { type: String, required: true },
+      createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+  });
+  
+  HelpdeskTicket = mongoose.model('HelpdeskTicket', helpdeskTicketSchema);
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Check admin authorization
+    // Verify admin access
     try {
       await isAdmin(req, res);
     } catch (error) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Connect to MongoDB if needed
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGODB_URL!);
     }
 
     // Handle different HTTP methods
@@ -60,63 +54,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'GET':
         return getTickets(req, res);
       case 'POST':
-        return createTicket(req, res);
+        return updateTicket(req, res);
+      case 'DELETE':
+        return deleteTicket(req, res);
       default:
         return res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Helpdesk API error:', error);
+    console.error('Admin helpdesk API error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }
 
-// Get all helpdesk tickets
+// Get all tickets with pagination and filtering
 async function getTickets(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { 
-      status, 
-      priority, 
-      department, 
-      search, 
-      limit = 20, 
-      page = 1 
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      priority,
+      search,
+      sort = 'createdAt',
+      order = 'desc',
     } = req.query;
-    
+
     const skip = (Number(page) - 1) * Number(limit);
-
     let query: any = {};
+    let sortOption: any = {};
 
-    // Apply filters if provided
+    // Apply filters
     if (status) {
       query.status = status;
     }
+    
     if (priority) {
       query.priority = priority;
     }
-    if (department) {
-      query.department = department;
-    }
-
-    // Apply search filter if provided
+    
     if (search) {
       query.$or = [
-        { ticketId: { $regex: search, $options: 'i' } },
-        { 'customer.name': { $regex: search, $options: 'i' } },
-        { 'customer.email': { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
         { subject: { $regex: search, $options: 'i' } },
+        { message: { $regex: search, $options: 'i' } },
       ];
     }
 
-    // Get total count for pagination
-    const totalCount = await Helpdesk.countDocuments(query);
-    
-    // Get tickets with pagination
-    const tickets = await Helpdesk.find(query)
-      .sort({ updatedAt: -1 })
+    // Set up sort options
+    if (sort) {
+      const sortOrder = order === 'asc' ? 1 : -1;
+      sortOption[sort as string] = sortOrder;
+    }
+
+    // Count total tickets for pagination
+    const totalCount = await HelpdeskTicket.countDocuments(query);
+
+    // Get tickets with pagination, populate assignedTo if present
+    const tickets = await HelpdeskTicket.find(query)
+      .sort(sortOption)
       .skip(skip)
       .limit(Number(limit))
-      .populate('assignedTo', 'fullName email')
-      .populate('customer.userId', 'fullName email mobile');
+      .populate('assignedTo', 'username email fullName')
+      .populate('replies.createdBy', 'username email fullName');
 
     return res.status(200).json({
       tickets,
@@ -133,39 +133,87 @@ async function getTickets(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-// Create a new helpdesk ticket
-async function createTicket(req: NextApiRequest, res: NextApiResponse) {
+// Update ticket (status, priority, add reply, assign)
+async function updateTicket(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { 
-      customer, 
-      subject, 
-      message, 
-      status, 
-      priority, 
-      department,
-      assignedTo 
+      ticketId,
+      status,
+      priority,
+      assignedTo,
+      reply
     } = req.body;
 
-    // Generate a unique ticket ID
-    const ticketId = `TKT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+    if (!ticketId) {
+      return res.status(400).json({ message: 'Ticket ID is required' });
+    }
 
-    // Create new ticket
-    const newTicket = await Helpdesk.create({
-      ticketId,
-      customer,
-      subject,
-      message,
-      status: status || 'new',
-      priority: priority || 'medium',
-      department: department || 'general',
-      assignedTo: assignedTo || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    // Get the current ticket
+    const ticket = await HelpdeskTicket.findById(ticketId);
+    
+    if (!ticket) {
+      return res.status(404).json({ message: 'Ticket not found' });
+    }
 
-    return res.status(201).json(newTicket);
+    // Update fields if provided
+    if (status) {
+      ticket.status = status;
+    }
+    
+    if (priority) {
+      ticket.priority = priority;
+    }
+    
+    if (assignedTo) {
+      ticket.assignedTo = assignedTo;
+    }
+    
+    // Add reply if provided
+    if (reply && reply.message) {
+      ticket.replies.push({
+        message: reply.message,
+        createdBy: req.session?.user?.id,
+        createdAt: new Date()
+      });
+    }
+    
+    // Update the updatedAt timestamp
+    ticket.updatedAt = new Date();
+    
+    // Save the updated ticket
+    await ticket.save();
+    
+    // Return the updated ticket with populated fields
+    const updatedTicket = await HelpdeskTicket.findById(ticketId)
+      .populate('assignedTo', 'username email fullName')
+      .populate('replies.createdBy', 'username email fullName');
+    
+    return res.status(200).json(updatedTicket);
   } catch (error) {
-    console.error('Error creating helpdesk ticket:', error);
-    return res.status(500).json({ message: 'Failed to create ticket' });
+    console.error('Error updating helpdesk ticket:', error);
+    return res.status(500).json({ message: 'Failed to update ticket' });
+  }
+}
+
+// Delete a ticket
+async function deleteTicket(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    const { ticketId } = req.body;
+
+    if (!ticketId) {
+      return res.status(400).json({ message: 'Ticket ID is required' });
+    }
+
+    // Delete the ticket
+    const result = await HelpdeskTicket.findByIdAndDelete(ticketId);
+    
+    if (!result) {
+      return res.status(404).json({ message: 'Ticket not found' });
+    }
+
+    return res.status(200).json({ message: 'Ticket deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting helpdesk ticket:', error);
+    return res.status(500).json({ message: 'Failed to delete ticket' });
   }
 }
