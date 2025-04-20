@@ -1,13 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { storage } from '@/server/storage';
+import { storageProvider } from '@/server/index';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-
-// Define login schema
-const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
-});
+import { loginSchema } from '@/shared/next-schema';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -16,14 +11,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Validate request body against login schema
-    const { username, password } = loginSchema.parse(req.body);
+    const { email, password } = loginSchema.parse(req.body);
 
-    // Get user by username
-    const user = await storage.getUserByUsername(username);
+    if (!storageProvider.instance) {
+      await storageProvider.initialize();
+    }
+
+    // Get user by email
+    const user = await storageProvider.instance.getUserByEmail(email);
     
     // If user doesn't exist or password doesn't match
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     // Remove password from response

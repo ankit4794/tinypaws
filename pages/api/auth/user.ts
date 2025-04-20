@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { storage } from '@/server/storage';
+import { storageProvider } from '@/server/index';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -12,8 +12,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
+    if (!storageProvider.instance) {
+      await storageProvider.initialize();
+    }
+
     // Get fresh user data in case it was updated
-    const freshUser = await storage.getUser(req.session.user.id);
+    const freshUser = await storageProvider.instance.getUser(req.session.user._id);
     
     if (!freshUser) {
       // User was deleted or doesn't exist anymore

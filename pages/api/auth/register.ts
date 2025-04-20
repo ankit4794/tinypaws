@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { storage } from '@/server/storage';
-import { insertUserSchema } from '@/shared/schema';
+import { storageProvider } from '@/server/index';
+import { registerSchema } from '@/shared/next-schema';
+import { UserRole } from '@/shared/next-schema';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -10,18 +11,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Validate request body against schema
-    const userData = insertUserSchema.parse(req.body);
+    const userData = registerSchema.parse(req.body);
+
+    if (!storageProvider.instance) {
+      await storageProvider.initialize();
+    }
 
     // Check if username already exists
-    const existingUsername = await storage.getUserByUsername(userData.username);
+    const existingUsername = await storageProvider.instance.getUserByUsername(userData.username);
     if (existingUsername) {
       return res.status(400).json({ message: 'Username already exists' });
     }
 
     // Check if email already exists
-    const existingEmail = await storage.getUserByEmail(userData.email);
+    const existingEmail = await storageProvider.instance.getUserByEmail(userData.email);
     if (existingEmail) {
       return res.status(400).json({ message: 'Email already exists' });
+    }
+
+    // Check if mobile already exists (if provided)
+    if (userData.mobile) {
+      const existingMobile = await storageProvider.instance.getUserByMobile(userData.mobile);
+      if (existingMobile) {
+        return res.status(400).json({ message: 'Mobile number already exists' });
+      }
     }
 
     // Hash the password
@@ -29,9 +42,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const hashedPassword = await bcrypt.hash(userData.password, salt);
 
     // Create the user with hashed password
-    const user = await storage.createUser({
-      ...userData,
+    const user = await storageProvider.instance.createUser({
+      email: userData.email,
+      username: userData.username,
       password: hashedPassword,
+      fullName: userData.fullName || null,
+      mobile: userData.mobile || null,
+      role: UserRole.USER,
+      address: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // Remove password from response
