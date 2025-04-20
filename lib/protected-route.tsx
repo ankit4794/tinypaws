@@ -1,21 +1,27 @@
-import * as React from 'react';
-import { useRouter } from 'next/router';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/router';
+import { ComponentType, useEffect } from 'react';
 
-// HOC version for Next.js pages
 export function withProtectedRoute<P extends object>(
-  Component: React.ComponentType<P>
+  Component: ComponentType<P>,
+  options: { redirectTo?: string; adminOnly?: boolean } = {}
 ) {
+  const { redirectTo = '/auth', adminOnly = false } = options;
+
   return function ProtectedRoute(props: P) {
     const { user, isLoading } = useAuth();
     const router = useRouter();
 
-    React.useEffect(() => {
-      if (!isLoading && !user) {
-        router.push('/auth');
+    useEffect(() => {
+      if (!isLoading) {
+        if (!user) {
+          router.push(redirectTo);
+        } else if (adminOnly && user.role !== 'ADMIN') {
+          router.push('/');
+        }
       }
-    }, [user, isLoading, router]);
+    }, [isLoading, user, router]);
 
     if (isLoading) {
       return (
@@ -26,9 +32,18 @@ export function withProtectedRoute<P extends object>(
     }
 
     if (!user) {
-      return null; // Don't render anything if redirecting
+      return null;
+    }
+
+    if (adminOnly && user.role !== 'ADMIN') {
+      return null;
     }
 
     return <Component {...props} />;
   };
+}
+
+// Admin only route
+export function withAdminRoute<P extends object>(Component: ComponentType<P>) {
+  return withProtectedRoute(Component, { adminOnly: true, redirectTo: '/' });
 }

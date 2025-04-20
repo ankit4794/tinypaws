@@ -1,24 +1,24 @@
-import * as React from 'react';
-import { useRouter } from 'next/router';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
-import { AdminLayout } from '@/components/admin/layout';
+import { useRouter } from 'next/router';
+import { ComponentType, useEffect } from 'react';
 
-// HOC version for Next.js admin pages
 export function withAdminProtectedRoute<P extends object>(
-  Component: React.ComponentType<P>,
-  options?: { layout?: boolean }
+  Component: ComponentType<P>
 ) {
   return function AdminProtectedRoute(props: P) {
-    const { adminUser, isLoading } = useAdminAuth();
+    const { user, isLoading } = useAuth();
     const router = useRouter();
-    const useLayout = options?.layout !== false;
 
-    React.useEffect(() => {
-      if (!isLoading && !adminUser) {
-        router.push('/admin/login');
+    useEffect(() => {
+      if (!isLoading) {
+        if (!user) {
+          router.push('/auth');
+        } else if (user.role !== 'ADMIN') {
+          router.push('/');
+        }
       }
-    }, [adminUser, isLoading, router]);
+    }, [isLoading, user, router]);
 
     if (isLoading) {
       return (
@@ -28,20 +28,10 @@ export function withAdminProtectedRoute<P extends object>(
       );
     }
 
-    if (!adminUser) {
-      return null; // Don't render anything if redirecting
+    if (!user || user.role !== 'ADMIN') {
+      return null;
     }
 
-    // Wrap the component with admin layout if layout option is true
-    if (useLayout) {
-      return (
-        <AdminLayout>
-          <Component {...props} />
-        </AdminLayout>
-      );
-    }
-
-    // Otherwise, render the component directly
     return <Component {...props} />;
   };
 }
