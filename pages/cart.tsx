@@ -1,10 +1,18 @@
-import * as React from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
-import { useCart } from '@/hooks/use-cart';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { Helmet } from "react-helmet";
+import { useCart } from "@/hooks/use-cart";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Card,
   CardContent,
@@ -12,250 +20,346 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
-import { useQuery } from '@tanstack/react-query';
+} from "@/components/ui/card";
 
-export default function CartPage() {
-  const router = useRouter();
+const CartPage = () => {
+  const [, navigate] = useLocation();
+  const { cartItems, removeFromCart, updateQuantity, clearCart, getCartTotal } = useCart();
   const { toast } = useToast();
-  const {
-    items,
-    subtotal,
-    deliveryCharge,
-    tax,
-    total,
-    updateItem,
-    removeItem,
-    clearCart,
-    setDeliveryCharge,
-  } = useCart();
+  const [couponCode, setCouponCode] = useState<string>("");
+  const [pincode, setPincode] = useState<string>("");
+  const [isCheckingPincode, setIsCheckingPincode] = useState<boolean>(false);
+  const [deliveryCharge, setDeliveryCharge] = useState<number>(0);
+  const [discount, setDiscount] = useState<number>(0);
 
-  // Fetch available shipping areas
-  const { data: shippingAreas } = useQuery({
-    queryKey: ['/api/shipping-areas'],
-    retry: 1,
-  });
-
-  // Handle shipping area change
-  const handleShippingAreaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedAreaCharge = parseFloat(e.target.value);
-    setDeliveryCharge(selectedAreaCharge);
+  const handleQuantityChange = (productId: number, quantity: number) => {
+    updateQuantity(productId, quantity);
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
+  const handleRemoveItem = (productId: number) => {
+    removeFromCart(productId);
   };
 
-  // Handle checkout button click
-  const handleCheckout = () => {
-    if (items.length === 0) {
+  const handleClearCart = () => {
+    clearCart();
+  };
+
+  const handleApplyCoupon = () => {
+    if (!couponCode) {
       toast({
-        title: 'Cart is empty',
-        description: 'Please add items to your cart before checking out',
-        variant: 'destructive',
+        title: "Error",
+        description: "Please enter a coupon code",
+        variant: "destructive",
       });
       return;
     }
 
-    router.push('/checkout');
+    // Simulate coupon validation
+    if (couponCode.toUpperCase() === "WELCOME10") {
+      const discountAmount = Math.round(getCartTotal() * 0.1);
+      setDiscount(discountAmount);
+      toast({
+        title: "Coupon Applied",
+        description: "10% discount has been applied to your order",
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Invalid Coupon",
+        description: "The coupon code you entered is invalid or expired",
+        variant: "destructive",
+      });
+    }
   };
 
-  return (
-    <div className="container max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Shopping Cart</h1>
+  const handleCheckPincode = async () => {
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      toast({
+        title: "Invalid Pincode",
+        description: "Please enter a valid 6-digit pincode",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      {items.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="flex justify-center mb-4">
-            <ShoppingBag className="h-16 w-16 text-muted-foreground" />
-          </div>
-          <h2 className="text-2xl font-semibold mb-2">Your cart is empty</h2>
-          <p className="text-muted-foreground mb-6">
-            Looks like you haven't added any products to your cart yet.
-          </p>
-          <Link href="/products">
-            <Button size="lg">
-              Start Shopping
+    setIsCheckingPincode(true);
+    
+    try {
+      // This would be an API call in production
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Simple logic for demo: even last digit means deliverable with different charges
+      const lastDigit = parseInt(pincode.slice(-1));
+      if (lastDigit % 2 === 0) {
+        const charge = getCartTotal() > 999 ? 0 : 70;
+        setDeliveryCharge(charge);
+        toast({
+          title: charge === 0 ? "Free Delivery" : "Delivery Available",
+          description: charge === 0 
+            ? "Your order qualifies for free delivery!" 
+            : "Delivery is available for your location with a charge of ₹70",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Delivery Not Available",
+          description: "Sorry, we don't deliver to your area yet",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to check delivery availability",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingPincode(false);
+    }
+  };
+
+  const handleCheckout = () => {
+    // In a real app, this would navigate to checkout page or initiate checkout process
+    toast({
+      title: "Proceeding to Checkout",
+      description: "This would normally take you to the checkout page",
+      variant: "default",
+    });
+  };
+
+  const subtotal = getCartTotal();
+  const total = subtotal + deliveryCharge - discount;
+  
+  const isFreeShippingEligible = subtotal >= 999;
+
+  return (
+    <>
+      <Helmet>
+        <title>Shopping Cart | TinyPaws</title>
+        <meta name="description" content="Review your cart items and proceed to checkout" />
+      </Helmet>
+
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6">Your Shopping Cart</h1>
+        
+        {cartItems.length === 0 ? (
+          <div className="text-center py-16 bg-gray-50 rounded-lg">
+            <i className="fas fa-shopping-cart text-4xl text-gray-400 mb-3"></i>
+            <h2 className="text-2xl font-medium mb-4">Your cart is empty</h2>
+            <p className="text-gray-600 mb-6">Looks like you haven't added any items to your cart yet.</p>
+            <Button asChild>
+              <Link href="/products/dogs">Start Shopping</Link>
             </Button>
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="md:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cart Items ({items.length})</CardTitle>
-                <CardDescription>Review and modify your selected items</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {items.map((item) => (
-                    <div key={item._id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 py-4 border-b">
-                      <div className="relative h-24 w-24 rounded-md overflow-hidden bg-muted">
-                        {item.image ? (
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            fill
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                            <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Cart Items */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Product</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cartItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="w-20 h-20 rounded-md overflow-hidden">
+                            <img 
+                              src={item.images[0]} 
+                              alt={item.name}
+                              className="w-full h-full object-cover" 
+                            />
                           </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <Link href={`/products/${item.slug}`}>
-                          <h3 className="font-medium hover:underline">{item.name}</h3>
-                        </Link>
-                        {(item.weight || item.pack || item.variant) && (
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {item.weight && <span>Weight: {item.weight}</span>}
-                            {item.weight && item.pack && <span> • </span>}
-                            {item.pack && <span>Pack: {item.pack}</span>}
-                            {(item.weight || item.pack) && item.variant && <span> • </span>}
-                            {item.variant && <span>Variant: {item.variant}</span>}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <h3 className="font-medium">{item.name}</h3>
+                            {item.selectedColor && (
+                              <p className="text-sm text-gray-500">
+                                Color: {item.selectedColor.charAt(0).toUpperCase() + item.selectedColor.slice(1)}
+                              </p>
+                            )}
+                            {item.selectedSize && (
+                              <p className="text-sm text-gray-500">
+                                Size: {item.selectedSize.charAt(0).toUpperCase() + item.selectedSize.slice(1)}
+                              </p>
+                            )}
+                            <button 
+                              className="text-xs text-red-600 hover:text-red-800 mt-1"
+                              onClick={() => handleRemoveItem(item.id)}
+                            >
+                              Remove
+                            </button>
                           </div>
-                        )}
-                        <div className="mt-2">
-                          {item.salePrice ? (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{formatCurrency(item.salePrice)}</span>
-                              <span className="text-sm line-through text-muted-foreground">
-                                {formatCurrency(item.price)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="font-medium">{formatCurrency(item.price)}</span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => updateItem(item._id, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-10 text-center font-medium">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => updateItem(item._id, item.quantity + 1)}
-                          disabled={item.maxQuantity ? item.quantity >= item.maxQuantity : false}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="text-right font-medium">
-                        {formatCurrency((item.salePrice || item.price) * item.quantity)}
-                      </div>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeItem(item._id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-100"
+                        </TableCell>
+                        <TableCell>₹{item.price}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center border border-gray-300 rounded-md w-24">
+                            <button 
+                              className="px-2 py-1 text-gray-600 hover:bg-gray-100"
+                              onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                            >
+                              -
+                            </button>
+                            <input 
+                              type="number" 
+                              value={item.quantity} 
+                              min="1"
+                              onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 1)} 
+                              className="w-10 py-1 text-center border-x border-gray-300"
+                            />
+                            <button 
+                              className="px-2 py-1 text-gray-600 hover:bg-gray-100"
+                              onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">₹{item.price * item.quantity}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              <div className="flex justify-between mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate(-1)}
+                >
+                  <i className="fas fa-arrow-left mr-2"></i> Continue Shopping
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleClearCart}
+                >
+                  <i className="fas fa-trash mr-2"></i> Clear Cart
+                </Button>
+              </div>
+            </div>
+            
+            {/* Order Summary */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Order Summary</CardTitle>
+                  <CardDescription>Review your order details before proceeding to checkout</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span>₹{subtotal}</span>
+                  </div>
+                  
+                  {discount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount</span>
+                      <span>-₹{discount}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Shipping</span>
+                    <span>
+                      {deliveryCharge === 0 ? (
+                        isFreeShippingEligible ? "Free" : "Calculated at checkout"
+                      ) : (
+                        `₹${deliveryCharge}`
+                      )}
+                    </span>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total</span>
+                      <span>₹{deliveryCharge ? total : subtotal}</span>
+                    </div>
+                    {isFreeShippingEligible && (
+                      <p className="text-green-600 text-sm mt-1">
+                        <i className="fas fa-check-circle mr-1"></i> Your order qualifies for FREE shipping!
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Coupon Code */}
+                  <div className="pt-4">
+                    <h3 className="font-medium mb-2">Have a coupon?</h3>
+                    <div className="flex">
+                      <Input
+                        type="text"
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="rounded-r-none"
+                      />
+                      <Button 
+                        className="rounded-l-none"
+                        onClick={handleApplyCoupon}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        Apply
                       </Button>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between border-t pt-4">
-                <Button variant="outline" onClick={clearCart}>
-                  Clear Cart
-                </Button>
-                <Link href="/products">
-                  <Button variant="link">
-                    Continue Shopping
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          </div>
-
-          {/* Order Summary */}
-          <div className="md:col-span-1">
-            <Card className="sticky top-20">
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-                <CardDescription>Review your order details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Shipping area selector */}
-                <div className="space-y-2">
-                  <label htmlFor="shipping-area" className="block text-sm font-medium">
-                    Delivery Area
-                  </label>
-                  <select
-                    id="shipping-area"
-                    className="w-full border border-input rounded-md h-10 px-3"
-                    onChange={handleShippingAreaChange}
-                    defaultValue={deliveryCharge}
+                  </div>
+                  
+                  {/* Delivery Check */}
+                  <div className="pt-4">
+                    <h3 className="font-medium mb-2">Check Delivery</h3>
+                    <div className="flex">
+                      <Input
+                        type="text"
+                        placeholder="Enter pincode"
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        className="rounded-r-none"
+                        maxLength={6}
+                      />
+                      <Button 
+                        className="rounded-l-none"
+                        onClick={handleCheckPincode}
+                        disabled={isCheckingPincode}
+                      >
+                        {isCheckingPincode ? "Checking..." : "Check"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    className="w-full bg-black hover:bg-gray-800"
+                    onClick={handleCheckout}
                   >
-                    <option value="0">Select delivery area</option>
-                    {shippingAreas?.map((area: any) => (
-                      <option key={area._id} value={area.deliveryCharge}>
-                        {area.areaName} (₹{area.deliveryCharge})
-                      </option>
-                    ))}
-                  </select>
+                    Proceed to Checkout
+                  </Button>
+                </CardFooter>
+              </Card>
+              
+              <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">We Accept</h3>
+                <div className="flex space-x-4">
+                  <i className="fab fa-cc-visa text-2xl text-gray-600"></i>
+                  <i className="fab fa-cc-mastercard text-2xl text-gray-600"></i>
+                  <i className="fab fa-cc-amex text-2xl text-gray-600"></i>
+                  <i className="fab fa-cc-paypal text-2xl text-gray-600"></i>
+                  <i className="fas fa-money-bill-wave text-2xl text-gray-600"></i>
                 </div>
-
-                <Separator />
-
-                {/* Order details */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span>{formatCurrency(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">GST (18%):</span>
-                    <span>{formatCurrency(tax)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Delivery:</span>
-                    <span>{formatCurrency(deliveryCharge)}</span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="flex justify-between font-medium">
-                  <span>Total:</span>
-                  <span>{formatCurrency(total)}</span>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  className="w-full"
-                  onClick={handleCheckout}
-                  disabled={items.length === 0 || deliveryCharge === 0}
-                >
-                  Proceed to Checkout
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
+                <p className="text-sm text-gray-600 mt-2">
+                  <i className="fas fa-lock text-green-600 mr-1"></i> Secure checkout with 100% purchase protection
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
-}
+};
+
+export default CartPage;

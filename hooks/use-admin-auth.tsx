@@ -4,7 +4,6 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { UserRole } from "@shared/next-schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,8 +27,9 @@ type AdminLoginData = {
   password: string;
 };
 
-const LOCAL_STORAGE_ADMIN_KEY = "tinypaws-admin";
+const LOCAL_STORAGE_ADMIN_KEY = "tinypaws_admin_user";
 
+// Try to get persisted admin user from localStorage
 const getPersistedAdminUser = (): AdminUser | null => {
   if (typeof window === "undefined") return null;
   
@@ -50,7 +50,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [adminUserState, setAdminUserState] = useState<AdminUser | null>(getPersistedAdminUser());
   // Use a ref to track if we've already updated localStorage to prevent effect loops
   const hasUpdatedStorage = useRef(false);
-  
+
   // Initialize the query with data from localStorage if available
   const {
     data: adminUserData,
@@ -60,24 +60,26 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/admin/user"],
     queryFn: async () => {
       try {
-        // Try to get from server
-        const res = await fetch("/api/admin/user");
+        // Try to get from server first
+        const res = await apiRequest("GET", "/api/admin/user");
         if (res.status === 200) {
           const data = await res.json();
           return data;
+        } else {
+          // If server says no, return null
+          return null;
         }
-        return null;
       } catch (error) {
         console.error("Error fetching admin user:", error);
-        // On error, return what we have in localStorage
+        // On error, use what we have in localStorage
         return getPersistedAdminUser();
       }
     },
     // Use stale time to avoid too frequent refetches
     staleTime: 5 * 60 * 1000, // 5 minutes
-    // Initialize with localStorage data
+    // Use initialData as a fallback
     initialData: getPersistedAdminUser(),
-    // Don't refetch on window focus
+    // Don't refetch on window focus since we manage state ourselves
     refetchOnWindowFocus: false,
   });
 

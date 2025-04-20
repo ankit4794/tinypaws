@@ -1,526 +1,529 @@
-import { useState } from 'react';
-import { GetServerSideProps } from 'next';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { useQuery } from '@tanstack/react-query';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { 
-  Loader2, 
-  Heart, 
-  ShoppingCart, 
-  Star, 
-  Truck,
-  ShieldCheck,
-  RotateCcw,
-  CircleHelp
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useParams } from "wouter";
+import { Helmet } from "react-helmet";
+import { Product } from "@shared/schema";
+import { useCart } from "@/hooks/use-cart";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ProductCard from "@/components/ui/ProductCard";
+import QuickViewModal from "@/components/ui/QuickViewModal";
+import { useProduct, useProducts } from "@/hooks/use-products";
 
-export default function ProductDetailPage({ slug }: { slug: string }) {
-  const router = useRouter();
-  const [quantity, setQuantity] = useState(1);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState('description');
+const ProductDetailPage = () => {
+  const { id } = useParams();
+  const { addToCart } = useCart();
+  const { toast } = useToast();
+  const [selectedColor, setSelectedColor] = useState<string>("red");
+  const [selectedSize, setSelectedSize] = useState<string>("medium");
+  const [quantity, setQuantity] = useState<number>(1);
+  const [activeImage, setActiveImage] = useState<string>("");
+  const [pincode, setPincode] = useState<string>("");
+  const [isDeliverable, setIsDeliverable] = useState<boolean | null>(null);
+  const [isCheckingDelivery, setIsCheckingDelivery] = useState<boolean>(false);
+  const [showQuickView, setShowQuickView] = useState<boolean>(false);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // Fetch product details
-  const {
-    data: product,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: [`/api/products/${slug}`],
-    queryFn: async () => {
-      const res = await fetch(`/api/products/slug/${slug}`);
-      if (!res.ok) throw new Error('Failed to fetch product');
-      return res.json();
-    },
+  // Use our custom hook with caching for the product
+  const { data: product, isLoading, error } = useProduct(id);
+
+  // Use our custom hook for similar products with caching
+  const { data: similarProducts, isLoading: isLoadingSimilar } = useProducts({
+    category: product?.category,
+    limit: 4,
+    enabled: !!product,
   });
 
-  // Fetch similar products
-  const {
-    data: similarProducts,
-    isLoading: isSimilarLoading,
-  } = useQuery({
-    queryKey: [`/api/products/similar/${product?.id}`],
-    queryFn: async () => {
-      if (!product?.id) return [];
-      const res = await fetch(`/api/products/similar/${product.id}`);
-      if (!res.ok) throw new Error('Failed to fetch similar products');
-      return res.json();
-    },
-    enabled: !!product?.id,
-  });
+  useEffect(() => {
+    if (product && product.images && product.images.length > 0) {
+      setActiveImage(product.images[0]);
+    }
+  }, [product]);
+
+  const colorOptions = [
+    { name: "Red", value: "red", color: "bg-red-500" },
+    { name: "Blue", value: "blue", color: "bg-blue-500" },
+    { name: "Green", value: "green", color: "bg-green-500" },
+    { name: "Black", value: "black", color: "bg-black" },
+  ];
+
+  const sizeOptions = [
+    { name: "Small", value: "small" },
+    { name: "Medium", value: "medium" },
+    { name: "Large", value: "large" },
+  ];
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1 && newQuantity <= (product?.stock || 10)) {
+    if (newQuantity >= 1) {
       setQuantity(newQuantity);
     }
   };
 
+  const handleAddToCart = () => {
+    if (product) {
+      addToCart({
+        ...product,
+        quantity,
+        selectedColor,
+        selectedSize,
+      });
+      
+      toast({
+        title: "Added to Cart",
+        description: `${quantity} ${product.name} added to your cart`,
+        variant: "default",
+      });
+    }
+  };
+
+  const handleCheckDelivery = async () => {
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      toast({
+        title: "Invalid Pincode",
+        description: "Please enter a valid 6-digit pincode",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCheckingDelivery(true);
+    
+    try {
+      // This would be an API call in production
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Simple logic for demo: even last digit means deliverable
+      const lastDigit = parseInt(pincode.slice(-1));
+      setIsDeliverable(lastDigit % 2 === 0);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to check delivery availability",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingDelivery(false);
+    }
+  };
+
+  const handleQuickView = (product: Product) => {
+    setQuickViewProduct(product);
+    setShowQuickView(true);
+  };
+
+  const renderStars = (rating: number) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    
+    // Add full stars
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<i key={`full-${i}`} className="fas fa-star text-yellow-400"></i>);
+    }
+    
+    // Add half star if needed
+    if (hasHalfStar) {
+      stars.push(<i key="half" className="fas fa-star-half-alt text-yellow-400"></i>);
+    }
+    
+    // Add empty stars
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(<i key={`empty-${i}`} className="far fa-star text-yellow-400"></i>);
+    }
+    
+    return stars;
+  };
+
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <main className="flex-grow flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-        </main>
-        <Footer />
+      <div className="flex justify-center items-center min-h-[500px]">
+        <Loader2 className="h-8 w-8 animate-spin text-black" />
       </div>
     );
   }
 
   if (error || !product) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <main className="flex-grow container mx-auto px-4 py-12">
-          <div className="text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">Product Not Found</h1>
-            <p className="text-gray-600 mb-6">
-              Sorry, the product you are looking for does not exist or has been removed.
-            </p>
-            <Button onClick={() => router.push('/products')}>
-              Back to Products
-            </Button>
-          </div>
-        </main>
-        <Footer />
+      <div className="container mx-auto px-4 py-12 text-center">
+        <h2 className="text-2xl font-bold mb-4">Product Not Found</h2>
+        <p className="text-gray-600">The product you're looking for doesn't exist or has been removed.</p>
+        <Button className="mt-6" asChild>
+          <a href="/products/dogs">Continue Shopping</a>
+        </Button>
       </div>
     );
   }
 
+  const discountPercentage = product.originalPrice && product.originalPrice > product.price
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
+
   return (
     <>
-      <Head>
-        <title>{product.name} | TinyPaws</title>
-        <meta name="description" content={product.description || `Buy ${product.name} from TinyPaws`} />
-      </Head>
+      <Helmet>
+        <title>{`${product.name} | TinyPaws`}</title>
+        <meta name="description" content={product.description} />
+      </Helmet>
 
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        
-        <main className="flex-grow">
-          {/* Breadcrumbs */}
-          <div className="bg-gray-50 py-4">
-            <div className="container px-4 mx-auto">
-              <nav className="text-sm breadcrumbs">
-                <ul className="flex gap-2">
-                  <li><Link href="/" className="text-gray-500 hover:text-black">Home</Link></li>
-                  <li className="before:content-['/'] before:mx-2 before:text-gray-400">
-                    <Link href="/products" className="text-gray-500 hover:text-black">Products</Link>
-                  </li>
-                  <li className="before:content-['/'] before:mx-2 before:text-gray-400">
-                    <Link href={`/products?category=${product.category}`} className="text-gray-500 hover:text-black">
-                      {product.category.charAt(0).toUpperCase() + product.category.slice(1)}
-                    </Link>
-                  </li>
-                  <li className="before:content-['/'] before:mx-2 before:text-gray-400">
-                    <span className="text-black">{product.name}</span>
-                  </li>
-                </ul>
-              </nav>
+      <div className="container mx-auto px-4 py-8">
+        {/* Breadcrumbs */}
+        <div className="flex text-sm text-gray-500 mb-6">
+          <a href="/" className="hover:text-black">Home</a>
+          <span className="mx-2">/</span>
+          <a href={`/products/${product.category}`} className="hover:text-black">
+            {product.category.charAt(0).toUpperCase() + product.category.slice(1)}
+          </a>
+          {product.subcategory && (
+            <>
+              <span className="mx-2">/</span>
+              <a href={`/products/${product.category}/${product.subcategory}`} className="hover:text-black">
+                {product.subcategory.charAt(0).toUpperCase() + product.subcategory.slice(1)}
+              </a>
+            </>
+          )}
+          <span className="mx-2">/</span>
+          <span className="text-black">{product.name}</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* Product Images */}
+          <div>
+            <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
+              <img 
+                src={activeImage}
+                alt={product.name}
+                className="w-full h-auto object-contain aspect-square"
+              />
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {product.images.map((image, index) => (
+                <div 
+                  key={index}
+                  className={`rounded-lg overflow-hidden border ${activeImage === image ? 'border-black' : 'border-gray-200'} hover:border-black cursor-pointer`}
+                  onClick={() => setActiveImage(image)}
+                >
+                  <img 
+                    src={image}
+                    alt={`${product.name} view ${index + 1}`}
+                    className="w-full h-auto object-cover aspect-square"
+                  />
+                </div>
+              ))}
             </div>
           </div>
           
-          {/* Product Detail */}
-          <section className="py-12">
-            <div className="container px-4 mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                {/* Product Images */}
-                <div>
-                  <div className="relative mb-4 h-96 overflow-hidden rounded-lg border">
-                    <img 
-                      src={product.images[activeImageIndex]} 
-                      alt={product.name}
-                      className="w-full h-full object-contain"
-                    />
-                    {product.originalPrice && (
-                      <span className="absolute top-4 right-4 bg-black text-white text-xs font-medium px-2 py-1 rounded">
-                        {Math.round((1 - product.price / product.originalPrice) * 100)}% OFF
-                      </span>
-                    )}
-                  </div>
-                  
-                  {product.images.length > 1 && (
-                    <div className="grid grid-cols-5 gap-2">
-                      {product.images.map((image: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={() => setActiveImageIndex(index)}
-                          className={`border rounded-md overflow-hidden h-20 ${
-                            activeImageIndex === index ? 'ring-2 ring-black' : ''
-                          }`}
-                        >
-                          <img 
-                            src={image} 
-                            alt={`${product.name} view ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Product Info */}
-                <div>
-                  <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
-                  
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="flex items-center">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star
-                          key={index}
-                          className={`h-4 w-4 ${
-                            index < Math.floor(product.rating)
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-sm text-gray-600">
-                      {product.rating.toFixed(1)} ({product.reviewCount} reviews)
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-baseline gap-3 mb-6">
-                    <span className="text-2xl font-bold">
-                      ₹{(product.price / 100).toFixed(2)}
-                    </span>
-                    {product.originalPrice && (
-                      <span className="text-gray-500 text-lg line-through">
-                        ₹{(product.originalPrice / 100).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <p className="text-gray-600 mb-6">
-                    {product.description}
-                  </p>
-                  
-                  {/* Product Features */}
-                  {product.features && product.features.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="text-lg font-medium mb-2">Key Features</h3>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {product.features.map((feature: string, index: number) => (
-                          <li key={index} className="text-gray-600">{feature}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  {/* Quantity Selector */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-medium mb-2">Quantity</h3>
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => handleQuantityChange(quantity - 1)}
-                        disabled={quantity <= 1}
-                        className="w-10 h-10 flex items-center justify-center border rounded-l-md disabled:opacity-50"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        max={product.stock}
-                        value={quantity}
-                        onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                        className="w-16 h-10 border-t border-b text-center"
-                      />
-                      <button
-                        onClick={() => handleQuantityChange(quantity + 1)}
-                        disabled={quantity >= product.stock}
-                        className="w-10 h-10 flex items-center justify-center border rounded-r-md disabled:opacity-50"
-                      >
-                        +
-                      </button>
-                      <span className="ml-3 text-sm text-gray-500">
-                        {product.stock} available
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Add to Cart and Wishlist */}
-                  <div className="flex gap-3 mb-8">
-                    <Button 
-                      className="flex-1 flex items-center gap-2"
-                      size="lg"
-                    >
-                      <ShoppingCart className="h-5 w-5" />
-                      Add to Cart
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="lg"
-                      className="flex items-center gap-2"
-                    >
-                      <Heart className="h-5 w-5" />
-                      Add to Wishlist
-                    </Button>
-                  </div>
-                  
-                  {/* Delivery Options */}
-                  <div className="border rounded-md p-4 mb-6">
-                    <h3 className="text-lg font-medium mb-3">Delivery & Returns</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-start gap-3">
-                        <Truck className="h-5 w-5 text-gray-600 mt-1 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-medium">Free Delivery</h4>
-                          <p className="text-sm text-gray-600">On orders above ₹999</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <ShieldCheck className="h-5 w-5 text-gray-600 mt-1 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-medium">Quality Guarantee</h4>
-                          <p className="text-sm text-gray-600">Verified product quality</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <RotateCcw className="h-5 w-5 text-gray-600 mt-1 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-medium">Easy Returns</h4>
-                          <p className="text-sm text-gray-600">30-day return policy</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <CircleHelp className="h-5 w-5 text-gray-600 mt-1 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-medium">Support</h4>
-                          <p className="text-sm text-gray-600">24/7 customer service</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Check Delivery */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-medium mb-2">Check Delivery</h3>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        placeholder="Enter PIN code" 
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        maxLength={6}
-                      />
-                      <Button variant="outline">Check</Button>
-                    </div>
-                  </div>
-                </div>
+          {/* Product Info */}
+          <div>
+            <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+            
+            <div className="flex items-center mb-4">
+              <div className="flex items-center">
+                {renderStars(product.rating)}
+              </div>
+              <span className="text-sm text-gray-500 ml-2">({product.reviewCount} reviews)</span>
+            </div>
+            
+            <div className="mb-6">
+              <span className="text-2xl font-bold mr-3">₹{product.price}</span>
+              {product.originalPrice && product.originalPrice > product.price && (
+                <>
+                  <span className="text-gray-500 line-through">₹{product.originalPrice}</span>
+                  <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">
+                    {discountPercentage}% OFF
+                  </span>
+                </>
+              )}
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-4">{product.description}</p>
+              {product.features && (
+                <ul className="list-disc pl-5 text-gray-700 space-y-1">
+                  {product.features.map((feature, index) => (
+                    <li key={index}>{feature}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            
+            {/* Color Selection */}
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">Color</h3>
+              <div className="flex space-x-2">
+                {colorOptions.map((color) => (
+                  <button 
+                    key={color.value}
+                    className={`w-8 h-8 rounded-full ${color.color} border-2 border-white ${selectedColor === color.value ? 'ring-2 ring-black' : 'hover:ring-2 hover:ring-gray-400'}`}
+                    onClick={() => setSelectedColor(color.value)}
+                    aria-label={`Select ${color.name} color`}
+                  ></button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Size Selection */}
+            <div className="mb-6">
+              <h3 className="font-medium mb-2">Size</h3>
+              <div className="flex flex-wrap gap-2">
+                {sizeOptions.map((size) => (
+                  <button 
+                    key={size.value}
+                    className={`px-4 py-2 ${
+                      selectedSize === size.value 
+                        ? 'border-2 border-black' 
+                        : 'border border-gray-300 hover:border-black'
+                    } rounded-md`}
+                    onClick={() => setSelectedSize(size.value)}
+                  >
+                    {size.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Quantity and Add to Cart */}
+            <div className="flex items-center mb-6">
+              <div className="flex items-center border border-gray-300 rounded-md mr-4">
+                <button 
+                  className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                >
+                  -
+                </button>
+                <input 
+                  type="number" 
+                  value={quantity} 
+                  min="1"
+                  onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)} 
+                  className="w-12 py-1 text-center border-x border-gray-300"
+                />
+                <button 
+                  className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                  onClick={() => handleQuantityChange(quantity + 1)}
+                >
+                  +
+                </button>
               </div>
               
-              {/* Product Tabs */}
-              <div className="mt-16">
-                <Tabs defaultValue="description" value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="w-full border-b rounded-none justify-start mb-6">
-                    <TabsTrigger value="description" className="rounded-none">Description</TabsTrigger>
-                    <TabsTrigger value="specifications" className="rounded-none">Specifications</TabsTrigger>
-                    <TabsTrigger value="reviews" className="rounded-none">Reviews ({product.reviewCount})</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="description" className="py-4">
-                    <div dangerouslySetInnerHTML={{ __html: product.longDescription || product.description }} />
-                  </TabsContent>
-                  
-                  <TabsContent value="specifications" className="py-4">
-                    <table className="w-full border-collapse">
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="py-3 pr-4 text-gray-600 font-medium w-1/4">Brand</td>
-                          <td className="py-3">{product.brand || 'N/A'}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-3 pr-4 text-gray-600 font-medium">Category</td>
-                          <td className="py-3">{product.category.charAt(0).toUpperCase() + product.category.slice(1)}</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-3 pr-4 text-gray-600 font-medium">Stock</td>
-                          <td className="py-3">{product.stock} items</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-3 pr-4 text-gray-600 font-medium">Weight</td>
-                          <td className="py-3">0.5 kg (approx)</td>
-                        </tr>
-                        <tr className="border-b">
-                          <td className="py-3 pr-4 text-gray-600 font-medium">Dimensions</td>
-                          <td className="py-3">25 x 15 x 5 cm (approx)</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </TabsContent>
-                  
-                  <TabsContent value="reviews" className="py-4">
-                    <div className="space-y-8">
-                      <div className="flex flex-col md:flex-row gap-8">
-                        <div className="md:w-1/3">
-                          <div className="bg-gray-50 p-6 rounded-lg">
-                            <h3 className="text-xl font-bold mb-3">Customer Reviews</h3>
-                            <div className="flex items-center gap-4 mb-4">
-                              <div className="text-4xl font-bold">{product.rating.toFixed(1)}</div>
-                              <div>
-                                <div className="flex">
-                                  {Array.from({ length: 5 }).map((_, index) => (
-                                    <Star
-                                      key={index}
-                                      className={`h-5 w-5 ${
-                                        index < Math.floor(product.rating)
-                                          ? 'fill-yellow-400 text-yellow-400'
-                                          : 'text-gray-300'
-                                      }`}
-                                    />
-                                  ))}
-                                </div>
-                                <p className="text-sm text-gray-500">{product.reviewCount} reviews</p>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              {Array.from({ length: 5 }).map((_, index) => {
-                                const rating = 5 - index;
-                                // Random percentage for demo
-                                const percentage = Math.floor(Math.random() * 100);
-                                return (
-                                  <div key={rating} className="flex items-center gap-2">
-                                    <span className="text-sm font-medium w-10">{rating} star</span>
-                                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full bg-yellow-400"
-                                        style={{ width: `${percentage}%` }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-sm text-gray-500">{percentage}%</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="md:w-2/3">
-                          <h3 className="text-xl font-bold mb-4">Top Reviews</h3>
-                          
-                          <div className="space-y-6">
-                            {/* Sample reviews - would be fetched from API in production */}
-                            <div className="border-b pb-6">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-medium">John D.</h4>
-                                <span className="text-sm text-gray-500">2 weeks ago</span>
-                              </div>
-                              <div className="flex mb-2">
-                                {Array.from({ length: 5 }).map((_, index) => (
-                                  <Star
-                                    key={index}
-                                    className={`h-4 w-4 ${
-                                      index < 5 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <p className="text-gray-700">
-                                Great product! My dog absolutely loves it. The quality is excellent and it has lasted much longer than similar products I've bought before.
-                              </p>
-                            </div>
-                            
-                            <div className="border-b pb-6">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-medium">Sarah P.</h4>
-                                <span className="text-sm text-gray-500">1 month ago</span>
-                              </div>
-                              <div className="flex mb-2">
-                                {Array.from({ length: 5 }).map((_, index) => (
-                                  <Star
-                                    key={index}
-                                    className={`h-4 w-4 ${
-                                      index < 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <p className="text-gray-700">
-                                Very satisfied with this purchase. Shipping was quick and the product looks exactly like the pictures. Would recommend!
-                              </p>
-                            </div>
-                            
-                            <Button variant="outline">See All Reviews</Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+              <Button 
+                className="flex-grow bg-black text-white py-2 px-6 rounded-md hover:bg-gray-800 transition"
+                onClick={handleAddToCart}
+              >
+                Add to Cart
+              </Button>
+            </div>
+            
+            {/* Additional Actions */}
+            <div className="flex items-center space-x-4 text-sm mb-6">
+              <button className="flex items-center text-gray-600 hover:text-black">
+                <i className="far fa-heart mr-1"></i> Add to Wishlist
+              </button>
+              <button className="flex items-center text-gray-600 hover:text-black">
+                <i className="fas fa-share-alt mr-1"></i> Share
+              </button>
+            </div>
+            
+            {/* Delivery Check */}
+            <div className="p-4 bg-gray-50 rounded-md">
+              <h3 className="font-medium mb-2">Check Delivery</h3>
+              <div className="flex">
+                <Input
+                  type="text"
+                  placeholder="Enter Pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-1 focus:ring-black"
+                  maxLength={6}
+                />
+                <Button
+                  className="bg-black text-white px-4 py-2 rounded-r-md hover:bg-gray-800 transition"
+                  onClick={handleCheckDelivery}
+                  disabled={isCheckingDelivery}
+                >
+                  {isCheckingDelivery ? "Checking..." : "Check"}
+                </Button>
               </div>
               
-              {/* Similar Products */}
-              {similarProducts && similarProducts.length > 0 && (
-                <div className="mt-16">
-                  <h2 className="text-2xl font-bold mb-6">You may also like</h2>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {isSimilarLoading ? (
-                      <div className="col-span-full flex justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                      </div>
-                    ) : (
-                      similarProducts.map((similarProduct: any) => (
-                        <div key={similarProduct.id} className="group bg-white rounded-lg border overflow-hidden">
-                          <Link href={`/products/${similarProduct.slug}`} className="block">
-                            <img 
-                              src={similarProduct.images[0]} 
-                              alt={similarProduct.name}
-                              className="w-full h-48 object-cover"
-                            />
-                            <div className="p-4">
-                              <h3 className="font-medium mb-1">{similarProduct.name}</h3>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="font-bold">₹{(similarProduct.price / 100).toFixed(2)}</span>
-                                {similarProduct.originalPrice && (
-                                  <span className="text-gray-500 text-sm line-through">
-                                    ₹{(similarProduct.originalPrice / 100).toFixed(2)}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex">
-                                {Array.from({ length: 5 }).map((_, index) => (
-                                  <Star
-                                    key={index}
-                                    className={`h-3 w-3 ${
-                                      index < Math.floor(similarProduct.rating)
-                                        ? 'fill-yellow-400 text-yellow-400'
-                                        : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </Link>
-                        </div>
-                      ))
-                    )}
-                  </div>
+              {isDeliverable === true && (
+                <div className="mt-2 text-sm text-green-600">
+                  <i className="fas fa-check-circle mr-1"></i> We deliver to your area! Delivery usually takes 2-3 business days.
+                </div>
+              )}
+              
+              {isDeliverable === false && (
+                <div className="mt-2 text-sm text-red-600">
+                  <i className="fas fa-exclamation-circle mr-1"></i> Sorry, we don't deliver to your area yet.
                 </div>
               )}
             </div>
-          </section>
-        </main>
+          </div>
+        </div>
 
-        <Footer />
+        {/* Product Details Tabs */}
+        <div className="mb-12">
+          <Tabs defaultValue="description">
+            <TabsList className="w-full justify-start border-b">
+              <TabsTrigger value="description">Description</TabsTrigger>
+              <TabsTrigger value="specifications">Specifications</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews</TabsTrigger>
+              <TabsTrigger value="shipping">Shipping & Returns</TabsTrigger>
+            </TabsList>
+            <TabsContent value="description" className="py-6">
+              <div className="prose max-w-none">
+                <h3 className="text-xl font-semibold mb-4">Product Description</h3>
+                <p>{product.description}</p>
+                {product.longDescription && (
+                  <div className="mt-4" dangerouslySetInnerHTML={{ __html: product.longDescription }} />
+                )}
+              </div>
+            </TabsContent>
+            <TabsContent value="specifications" className="py-6">
+              <div className="prose max-w-none">
+                <h3 className="text-xl font-semibold mb-4">Specifications</h3>
+                <table className="w-full border-collapse">
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium">Brand</td>
+                      <td className="py-2">{product.brand || "TinyPaws"}</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium">Material</td>
+                      <td className="py-2">Premium Quality</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium">Weight</td>
+                      <td className="py-2">0.5kg</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium">Dimensions</td>
+                      <td className="py-2">25 x 15 x 5 cm</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium">Country of Origin</td>
+                      <td className="py-2">India</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </TabsContent>
+            <TabsContent value="reviews" className="py-6">
+              <div className="prose max-w-none">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold">Customer Reviews</h3>
+                  <Button>Write a Review</Button>
+                </div>
+                
+                <div className="flex items-center mb-6">
+                  <div className="mr-4">
+                    <div className="text-3xl font-bold">{product.rating.toFixed(1)}</div>
+                    <div className="flex">
+                      {renderStars(product.rating)}
+                    </div>
+                    <div className="text-sm text-gray-500">{product.reviewCount} reviews</div>
+                  </div>
+                  
+                  <div className="flex-grow">
+                    {/* Rating Bars */}
+                    {[5, 4, 3, 2, 1].map(star => (
+                      <div key={star} className="flex items-center mb-1">
+                        <span className="text-sm w-10">{star} star</span>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 mx-2">
+                          <div 
+                            className="bg-yellow-400 h-2.5 rounded-full" 
+                            style={{ width: `${star === 5 ? 70 : star === 4 ? 20 : star === 3 ? 7 : star === 2 ? 2 : 1}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm w-10">{star === 5 ? 70 : star === 4 ? 20 : star === 3 ? 7 : star === 2 ? 2 : 1}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Sample Reviews */}
+                <div className="space-y-6">
+                  <div className="border-b pb-6">
+                    <div className="flex justify-between mb-2">
+                      <h4 className="font-medium">Rahul K.</h4>
+                      <span className="text-sm text-gray-500">2 weeks ago</span>
+                    </div>
+                    <div className="flex mb-2">
+                      {renderStars(5)}
+                    </div>
+                    <p>Great product! My dog loves it. The quality is excellent and it's very durable. Would definitely recommend to other pet owners.</p>
+                  </div>
+                  
+                  <div className="border-b pb-6">
+                    <div className="flex justify-between mb-2">
+                      <h4 className="font-medium">Priya S.</h4>
+                      <span className="text-sm text-gray-500">1 month ago</span>
+                    </div>
+                    <div className="flex mb-2">
+                      {renderStars(4)}
+                    </div>
+                    <p>Really good quality product. My pet enjoys it a lot. The only reason I'm giving 4 stars is because the color is slightly different from what was shown online.</p>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <h4 className="font-medium">Ananya J.</h4>
+                      <span className="text-sm text-gray-500">2 months ago</span>
+                    </div>
+                    <div className="flex mb-2">
+                      {renderStars(5)}
+                    </div>
+                    <p>Excellent product and very fast delivery! My cat absolutely loves it. The material is high-quality and seems very durable. Will definitely be ordering more products from TinyPaws!</p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="shipping" className="py-6">
+              <div className="prose max-w-none">
+                <h3 className="text-xl font-semibold mb-4">Shipping & Returns</h3>
+                
+                <h4 className="font-medium mt-6 mb-2">Shipping Policy</h4>
+                <p>We offer free shipping on orders above ₹999. Standard delivery takes 2-5 business days depending on your location. For select pincode areas, we also offer express delivery within 24-48 hours at an additional cost.</p>
+                
+                <h4 className="font-medium mt-6 mb-2">Return Policy</h4>
+                <p>If you're not completely satisfied with your purchase, you can return it within 7 days of delivery. The product must be unused and in its original packaging. Please note that shipping charges for returns are borne by the customer unless the return is due to a defect or error on our part.</p>
+                
+                <h4 className="font-medium mt-6 mb-2">Refund Policy</h4>
+                <p>Once we receive and inspect the returned item, we will process your refund. The refund will be credited back to your original payment method within 5-7 business days.</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Similar Products */}
+        {similarProducts && similarProducts.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-6">You May Also Like</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {isLoadingSimilar ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="h-64 bg-gray-100 animate-pulse rounded-lg"></div>
+                ))
+              ) : (
+                similarProducts.slice(0, 4).map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Quick View Modal */}
+      {showQuickView && quickViewProduct && (
+        <QuickViewModal 
+          product={quickViewProduct} 
+          onClose={() => setShowQuickView(false)} 
+        />
+      )}
     </>
   );
-}
-
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { slug } = context.params as { slug: string };
-
-  return {
-    props: {
-      slug,
-    },
-  };
 };
+
+export default ProductDetailPage;
