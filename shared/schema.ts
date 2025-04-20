@@ -86,6 +86,24 @@ const categorySchema = new mongoose.Schema({
   image: String,
   isActive: { type: Boolean, default: true },
   type: { type: String, enum: ['shop_for', 'accessories', 'brands', 'age'] },
+  forPet: { type: String, enum: ['dog', 'cat', 'small_animal', 'all'] },
+  displayOrder: { type: Number, default: 0 }, // For ordering categories in UI
+}, { timestamps: true });
+
+// ==================== BRAND SCHEMA ====================
+const brandSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  description: String,
+  logo: { type: String, required: true }, // URL to logo image in Google Cloud Storage
+  bannerImage: String, // Banner image for brand page
+  featured: { type: Boolean, default: false }, // Is this a featured/top brand?
+  discount: { 
+    type: { type: String, enum: ['flat', 'percentage', 'none'], default: 'none' },
+    value: { type: Number, default: 0 }, // Flat amount or percentage
+    label: String, // e.g., "FLAT 15% Off", "EXTRA 5% Off", etc.
+  },
+  isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
 // ==================== PRODUCT VARIANT SCHEMA ====================
@@ -114,7 +132,7 @@ const productSchema = new mongoose.Schema({
   images: [String],
   features: [String],
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
-  brand: String,
+  brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }, // Reference to brand model
   ageGroup: String,
   stock: { type: Number, default: 0 }, // total stock across all variants
   rating: { type: Number, default: 0 },
@@ -333,7 +351,7 @@ const dashboardConfigSchema = new mongoose.Schema({
 // These model exports are for use on the server side only
 // On the client side, the types are used for type checking but not for DB operations
 // The conditional check helps prevent errors in the client-side bundle
-let User, Category, Product, CartItem, WishlistItem, Order, OrderItem, Review;
+let User, Category, Brand, Product, CartItem, WishlistItem, Order, OrderItem, Review;
 let ContactSubmission, NewsletterSubscriber, HelpDeskTicket, TicketResponse;
 let CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession;
 let DashboardConfig;
@@ -342,6 +360,7 @@ let DashboardConfig;
 if (typeof window === 'undefined') {
   User = mongoose.models.User || mongoose.model('User', userSchema);
   Category = mongoose.models.Category || mongoose.model('Category', categorySchema);
+  Brand = mongoose.models.Brand || mongoose.model('Brand', brandSchema);
   Product = mongoose.models.Product || mongoose.model('Product', productSchema);
   CartItem = mongoose.models.CartItem || mongoose.model('CartItem', cartItemSchema);
   WishlistItem = mongoose.models.WishlistItem || mongoose.model('WishlistItem', wishlistItemSchema);
@@ -362,7 +381,7 @@ if (typeof window === 'undefined') {
   DashboardConfig = mongoose.models.DashboardConfig || mongoose.model('DashboardConfig', dashboardConfigSchema);
 }
 
-export { User, Category, Product, CartItem, WishlistItem, Order, OrderItem, Review,
+export { User, Category, Brand, Product, CartItem, WishlistItem, Order, OrderItem, Review,
   ContactSubmission, NewsletterSubscriber, HelpDeskTicket, TicketResponse,
   CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession,
   DashboardConfig };
@@ -648,10 +667,47 @@ export type CategoryDocument = mongoose.Document & {
   image?: string | null;
   isActive: boolean;
   type?: string | null;
+  forPet?: string;
+  displayOrder?: number;
   createdAt: Date;
   updatedAt: Date;
 };
 export type Category = CategoryDocument;
+
+// Brand Schema
+export const insertBrandSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  slug: z.string().min(2, 'Slug must be at least 2 characters'),
+  description: z.string().optional().nullable(),
+  logo: z.string().min(5, 'Logo URL is required'),
+  bannerImage: z.string().optional().nullable(),
+  featured: z.boolean().default(false),
+  discount: z.object({
+    type: z.enum(['flat', 'percentage', 'none']).default('none'),
+    value: z.number().default(0),
+    label: z.string().optional().nullable(),
+  }).optional().default({}),
+  isActive: z.boolean().default(true),
+});
+
+export type InsertBrand = z.infer<typeof insertBrandSchema>;
+export type BrandDocument = mongoose.Document & {
+  name: string;
+  slug: string;
+  description?: string | null;
+  logo: string;
+  bannerImage?: string | null;
+  featured: boolean;
+  discount: {
+    type: 'flat' | 'percentage' | 'none';
+    value: number;
+    label?: string | null;
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+export type Brand = BrandDocument;
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type ProductVariantDocument = {
@@ -680,7 +736,7 @@ export type ProductDocument = mongoose.Document & {
   images: string[];
   features: string[];
   category: mongoose.Types.ObjectId;
-  brand?: string | null;
+  brand?: mongoose.Types.ObjectId | null;
   ageGroup?: string | null;
   stock: number;
   rating: number;
