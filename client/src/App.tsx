@@ -77,11 +77,12 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <div className="flex flex-col min-h-screen">
-            {isAdminRoute ? <AdminHeader /> : <Header />}
-            <main className="flex-grow">
+            {/* Only add header/footer for non-admin pages, as admin pages use AdminLayout */}
+            {!isAdminRoute && <Header />}
+            <main className={`flex-grow ${!isAdminRoute ? '' : 'w-full'}`}>
               <Router />
             </main>
-            {isAdminRoute ? <AdminFooter /> : <Footer />}
+            {!isAdminRoute && <Footer />}
           </div>
         </TooltipProvider>
       </AdminAuthProvider>
