@@ -21,7 +21,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 
 // Import admin pages
-import AdminLoginPage from "./pages/admin/login-page";
+import AdminLoginPage from "./pages/admin/login";
 import AdminDashboard from "./pages/admin/index";
 import AdminDashboardPage from "./pages/admin/dashboard";
 import HelpDeskPage from "./pages/admin/help-desk";
@@ -32,6 +32,9 @@ import OrdersManagement from "./pages/admin/orders";
 import CustomersManagement from "./pages/admin/customers";
 import CategoriesManagement from "./pages/admin/categories";
 import BrandsManagement from "./pages/admin/brands";
+import CmsPages from "./pages/admin/cms";
+import CreateCmsPage from "./pages/admin/cms/create";
+import EditCmsPage from "./pages/admin/cms/edit/[id]";
 
 function Router() {
   return (
@@ -59,6 +62,9 @@ function Router() {
       <AdminProtectedRoute path="/admin/customers" component={CustomersManagement} />
       <AdminProtectedRoute path="/admin/categories" component={CategoriesManagement} />
       <AdminProtectedRoute path="/admin/brands" component={BrandsManagement} />
+      <AdminProtectedRoute path="/admin/cms" component={CmsPages} />
+      <AdminProtectedRoute path="/admin/cms/create" component={CreateCmsPage} />
+      <AdminProtectedRoute path="/admin/cms/edit/:id" component={EditCmsPage} />
       
       <Route component={NotFound} />
     </Switch>
