@@ -9,6 +9,11 @@ const AdminLayout = dynamic(() => import('../admin/AdminLayout'), {
   loading: () => <div className="flex items-center justify-center min-h-screen">Loading admin layout...</div> 
 });
 
+// Import the unprotected version
+const UnprotectedAdminLayout = dynamic(() => import('../admin/AdminLayout').then(mod => mod.UnprotectedAdminLayout), { 
+  loading: () => <div className="flex items-center justify-center min-h-screen">Loading admin layout...</div> 
+});
+
 type LayoutProps = {
   children: ReactNode;
 };
@@ -20,17 +25,20 @@ const Layout = ({ children }: LayoutProps) => {
   // Don't apply admin layout to the admin login page
   const isAdminLoginPage = router.pathname === '/admin/login';
   
-  if (isAdminRoute && !isAdminLoginPage) {
+  if (isAdminRoute) {
+    if (isAdminLoginPage) {
+      return <UnprotectedAdminLayout>{children}</UnprotectedAdminLayout>;
+    }
     return <AdminLayout>{children}</AdminLayout>;
   }
   
   return (
     <div className="flex flex-col min-h-screen">
-      {!isAdminRoute && <Header />}
-      <main className={`flex-grow ${!isAdminRoute ? '' : 'w-full'}`}>
+      <Header />
+      <main className="flex-grow">
         {children}
       </main>
-      {!isAdminRoute && <Footer />}
+      <Footer />
     </div>
   );
 };
