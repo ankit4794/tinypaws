@@ -1,13 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   images: {
     domains: ['images.unsplash.com'],
-  },
-  // Server components are handled by Next.js
-  experimental: {
-    appDir: false, // We'll stick with pages directory for now
   },
   // We'll keep using our existing API routes initially
   rewrites: async () => {
@@ -20,4 +15,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
