@@ -2,7 +2,12 @@ import React, { ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import Header from './Header';
 import Footer from './Footer';
-import AdminLayout from '@/components/admin/AdminLayout';
+import dynamic from 'next/dynamic';
+
+// Dynamically import the AdminLayout to avoid circular dependency issues
+const AdminLayout = dynamic(() => import('../admin/AdminLayout'), { 
+  loading: () => <div className="flex items-center justify-center min-h-screen">Loading admin layout...</div> 
+});
 
 type LayoutProps = {
   children: ReactNode;
