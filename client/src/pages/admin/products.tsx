@@ -79,7 +79,7 @@ type VariantFormValues = z.infer<typeof variantFormSchema>;
 export default function AdminProductsPage() {
   const { toast } = useToast();
   const { products, isLoadingProducts, createProductMutation, updateProductMutation, deleteProductMutation } = useAdminProducts();
-  const { categories } = useCategories();
+  const { categories, isLoading: isLoadingCategories } = useCategories();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<any>(null);

@@ -4,19 +4,26 @@ export interface Category {
   _id: string;
   name: string;
   slug: string;
-  type: string;
-  forPet: string;
+  type?: string;
+  forPet?: string;
   description?: string;
   image?: string;
   displayOrder?: number;
   isActive: boolean;
   subCategories?: Category[];
+  parentId?: string;
 }
 
 export function useCategories() {
-  return useQuery<Category[]>({
+  const { data, isLoading, error } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
+  
+  return {
+    categories: data || [],
+    isLoading,
+    error
+  };
 }
 
 export function getMainCategories(categories: Category[] | undefined) {
@@ -27,6 +34,6 @@ export function getMainCategories(categories: Category[] | undefined) {
   ).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 }
 
-export function getCategoryPath(category: Category): string {
+export const getCategoryPath = (category: Category): string => {
   return `/products/${category.slug}`;
-}
+};
