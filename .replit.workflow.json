@@ -2,14 +2,14 @@
   "workflows": [
     {
       "name": "Start application",
-      "command": "./start-both-servers.sh"
+      "command": "NODE_ENV=development tsx server/index.ts"
     },
     {
-      "name": "Start Next.js only",
-      "command": "NODE_OPTIONS=\"--experimental-json-modules\" next dev -p 3000 -H 0.0.0.0 --config next.config.cjs"
+      "name": "Start Next.js",
+      "command": "NODE_OPTIONS=\"--experimental-json-modules\" npx next dev -p 3000 -H 0.0.0.0"
     },
     {
-      "name": "Start Express API only",
+      "name": "Start Express API",
       "command": "NODE_ENV=development tsx server/index.ts"
     }
   ]
