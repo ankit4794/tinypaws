@@ -168,11 +168,11 @@ export default function CategoriesManagement() {
     form.reset({
       name: "",
       slug: "",
-      parentId: "",
+      parentId: "none",
       description: "",
       image: "",
       isActive: true,
-      type: "",
+      type: "none",
     });
     setIsAddDialogOpen(true);
     setIsEditMode(false);
@@ -183,11 +183,11 @@ export default function CategoriesManagement() {
     form.reset({
       name: category.name,
       slug: category.slug,
-      parentId: category.parentId || "",
+      parentId: category.parentId || "none",
       description: category.description || "",
       image: category.image || "",
       isActive: category.isActive,
-      type: category.type || "",
+      type: category.type || "none",
     });
     setSelectedCategory(category);
     setIsEditMode(true);
@@ -195,13 +195,20 @@ export default function CategoriesManagement() {
 
   // Handle form submission
   const onSubmit = (data: CategoryFormValues) => {
+    // Convert "none" to empty string/null for parentId and type
+    const processedData = {
+      ...data,
+      parentId: data.parentId === "none" ? "" : data.parentId,
+      type: data.type === "none" ? "" : data.type
+    };
+    
     if (isEditMode && selectedCategory) {
       updateCategoryMutation.mutate({
         _id: selectedCategory._id,
-        ...data,
+        ...processedData,
       });
     } else {
-      addCategoryMutation.mutate(data);
+      addCategoryMutation.mutate(processedData);
     }
   };
 
@@ -601,7 +608,7 @@ export default function CategoriesManagement() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None (Top-level category)</SelectItem>
+                        <SelectItem value="none">None (Top-level category)</SelectItem>
                         {parentCategories?.map((parent) => (
                           <SelectItem key={parent._id} value={parent._id}>
                             {parent.name}
@@ -630,7 +637,7 @@ export default function CategoriesManagement() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         <SelectItem value="dog">Dog</SelectItem>
                         <SelectItem value="cat">Cat</SelectItem>
                         <SelectItem value="bird">Bird</SelectItem>
