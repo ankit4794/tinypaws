@@ -10,6 +10,7 @@ import { WishlistProvider } from '@/hooks/use-wishlist';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { queryClient } from '@/lib/queryClient';
+import Layout from '@/components/layout/Layout';
 import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -21,7 +22,9 @@ export default function App({ Component, pageProps }: AppProps) {
             <CartProvider>
               <WishlistProvider>
                 <TooltipProvider>
-                  <Component {...pageProps} />
+                  <Layout>
+                    <Component {...pageProps} />
+                  </Layout>
                   <Toaster />
                 </TooltipProvider>
               </WishlistProvider>
