@@ -1,426 +1,405 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, Search, Eye, Ban, Mail, PlusCircle } from "lucide-react";
 import { 
-  Table, 
-  TableBody, 
-  TableCaption, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { 
-  Search, 
-  X, 
-  ChevronLeft, 
-  ChevronRight,
-  Eye,
-  UserX,
-  UserCheck
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import AdminLayout from '@/components/admin/AdminLayout';
-import { useAuth } from '@/hooks/use-auth';
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
 
-export default function CustomersAdmin() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
+// Schema for customer form
+const customerSchema = z.object({
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  mobile: z.string().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  address: z.object({
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    pincode: z.string().optional(),
+  }).optional(),
+});
+
+type CustomerFormValues = z.infer<typeof customerSchema>;
+
+export default function CustomersManagement() {
   const { toast } = useToast();
-  const [customers, setCustomers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [customerDetails, setCustomerDetails] = useState(null);
-  const [isViewingDetails, setIsViewingDetails] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  
+  // Fetch customers
+  const { data: customers, isLoading } = useQuery({
+    queryKey: ["/api/admin/customers"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/customers");
+      return await res.json();
+    },
+  });
 
-  useEffect(() => {
-    // Check if user is admin
-    if (!isLoading && (!user || user.role !== 'ADMIN')) {
-      router.push('/admin/login');
-    }
-  }, [user, isLoading, router]);
-
-  useEffect(() => {
-    // Fetch customers
-    const fetchCustomers = async () => {
-      try {
-        const queryParams = new URLSearchParams();
-        queryParams.append('page', currentPage.toString());
-        if (searchTerm) queryParams.append('search', searchTerm);
-
-        const response = await fetch(`/api/admin/customers?${queryParams.toString()}`);
-        if (response.ok) {
-          const data = await response.json();
-          setCustomers(data.customers);
-          setTotalPages(data.totalPages);
-        }
-      } catch (error) {
-        console.error('Error fetching customers:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load customers. Please try again.",
-          variant: "destructive"
-        });
-      }
-    };
-
-    if (user && user.role === 'ADMIN') {
-      fetchCustomers();
-    }
-  }, [user, currentPage, searchTerm, toast]);
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    // Search is already handled by the useEffect
-  };
-
-  const handleClearSearch = () => {
-    setSearchTerm('');
-    setCurrentPage(1);
-  };
-
-  const viewCustomerDetails = async (customerId) => {
-    try {
-      const response = await fetch(`/api/admin/customers/${customerId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setCustomerDetails(data);
-        setIsViewingDetails(true);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch customer details",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching customer details:', error);
+  // Mutation for adding a new customer
+  const addCustomerMutation = useMutation({
+    mutationFn: async (data: CustomerFormValues) => {
+      const res = await apiRequest("POST", "/api/admin/customers", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Customer added successfully",
+      });
+      setIsAddDialogOpen(false);
+      // Refetch the customers list
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+    },
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to fetch customer details. Please try again.",
-        variant: "destructive"
+        description: error.message || "Failed to add customer",
+        variant: "destructive",
       });
-    }
+    },
+  });
+
+  // Form for adding a new customer
+  const form = useForm<CustomerFormValues>({
+    resolver: zodResolver(customerSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      mobile: "",
+      password: "",
+      address: {
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
+      },
+    },
+  });
+
+  // Handle form submission
+  const onSubmit = (data: CustomerFormValues) => {
+    addCustomerMutation.mutate(data);
   };
 
-  const closeCustomerDetails = () => {
-    setIsViewingDetails(false);
-    setCustomerDetails(null);
-  };
-
-  const toggleUserStatus = async (customerId, isActive) => {
-    setIsUpdatingStatus(true);
-    try {
-      const response = await fetch(`/api/admin/customers/${customerId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isActive })
-      });
-      
-      if (response.ok) {
-        // Update the customer status in the UI
-        setCustomers(customers.map(customer => 
-          customer.id === customerId ? { ...customer, isActive } : customer
-        ));
-        
-        if (customerDetails && customerDetails.id === customerId) {
-          setCustomerDetails({ ...customerDetails, isActive });
-        }
-        
-        toast({
-          title: "Success",
-          description: `Customer ${isActive ? 'activated' : 'deactivated'} successfully`
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update customer status",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Error updating customer status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update customer status. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!user || user.role !== 'ADMIN') {
-    return null;
-  }
+  // Filter customers based on search query
+  const filteredCustomers = customers ? customers.filter(customer => 
+    customer.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    customer.mobile?.includes(searchQuery)
+  ) : [];
 
   return (
-    <AdminLayout>
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-6">Customers Management</h1>
+    <div className="container mx-auto py-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-2xl font-bold">Customers Management</CardTitle>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Customer
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by name, email or phone..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
 
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <form onSubmit={handleSearch} className="flex gap-2 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search by name, email, or phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={handleClearSearch}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              <Button type="submit">Search</Button>
-            </form>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Orders</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customers.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center my-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? "No customers found matching your search." : "No customers found."}
-                    </TableCell>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Joined On</TableHead>
+                    <TableHead>Orders</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  customers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.fullName || 'N/A'}</TableCell>
-                      <TableCell>{customer.email}</TableCell>
-                      <TableCell>{new Date(customer.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>{customer.orderCount || 0}</TableCell>
-                      <TableCell>
-                        <span className={`inline-block py-1 px-2 rounded-full text-xs font-medium ${
-                          customer.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {customer.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => viewCustomerDetails(customer.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => toggleUserStatus(customer.id, !customer.isActive)}
-                            disabled={isUpdatingStatus}
-                          >
-                            {customer.isActive ? (
-                              <>
-                                <UserX className="h-4 w-4 mr-1 text-red-500" />
-                                Disable
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="h-4 w-4 mr-1 text-green-500" />
-                                Enable
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredCustomers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        No customers found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6">
-                <div className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Customer Details Modal */}
-      {isViewingDetails && customerDetails && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-medium">Customer Details</h3>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={closeCustomerDetails}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+                  ) : (
+                    filteredCustomers.map((customer) => (
+                      <TableRow key={customer._id}>
+                        <TableCell className="font-medium">{customer.fullName || "Unknown"}</TableCell>
+                        <TableCell>{customer.email}</TableCell>
+                        <TableCell>{customer.mobile || "None"}</TableCell>
+                        <TableCell>
+                          {customer.createdAt ? format(new Date(customer.createdAt), 'dd MMM yyyy') : "N/A"}
+                        </TableCell>
+                        <TableCell>{customer.orderCount || 0}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => setSelectedCustomer(customer)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon">
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon">
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <h4 className="font-medium mb-2">Personal Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <p><span className="text-gray-500">Name:</span> {customerDetails.fullName || 'N/A'}</p>
-                    <p><span className="text-gray-500">Email:</span> {customerDetails.email}</p>
-                    <p><span className="text-gray-500">Phone:</span> {customerDetails.mobile || 'N/A'}</p>
-                    <p><span className="text-gray-500">Member Since:</span> {new Date(customerDetails.createdAt).toLocaleDateString()}</p>
-                    <p>
-                      <span className="text-gray-500">Status:</span> 
-                      <span className={`ml-2 inline-block py-1 px-2 rounded-full text-xs font-medium ${
-                        customerDetails.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {customerDetails.isActive ? 'Active' : 'Inactive'}
-                      </span>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Customer Details Dialog */}
+      <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Customer Details</DialogTitle>
+          </DialogHeader>
+          {selectedCustomer && (
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="info">Customer Info</TabsTrigger>
+                <TabsTrigger value="orders">Orders</TabsTrigger>
+                <TabsTrigger value="addresses">Addresses</TabsTrigger>
+              </TabsList>
+              <TabsContent value="info" className="py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Full Name</p>
+                    <p className="text-sm text-muted-foreground">{selectedCustomer.fullName || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-sm text-muted-foreground">{selectedCustomer.email || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Phone</p>
+                    <p className="text-sm text-muted-foreground">{selectedCustomer.mobile || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Member Since</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCustomer.createdAt ? format(new Date(selectedCustomer.createdAt), 'PPP') : "N/A"}
                     </p>
                   </div>
                 </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Account Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <p><span className="text-gray-500">User ID:</span> {customerDetails.id}</p>
-                    <p><span className="text-gray-500">Username:</span> {customerDetails.username}</p>
-                    <p><span className="text-gray-500">Orders:</span> {customerDetails.orderCount || 0}</p>
-                    <p><span className="text-gray-500">Last Order:</span> {customerDetails.lastOrderDate ? new Date(customerDetails.lastOrderDate).toLocaleDateString() : 'N/A'}</p>
-                    <p><span className="text-gray-500">Last Login:</span> {customerDetails.lastLogin ? new Date(customerDetails.lastLogin).toLocaleString() : 'N/A'}</p>
+              </TabsContent>
+              <TabsContent value="orders" className="py-4">
+                <p className="text-center text-sm text-muted-foreground">
+                  {selectedCustomer.orderCount ? `This customer has placed ${selectedCustomer.orderCount} orders.` : "No orders found for this customer."}
+                </p>
+                {/* In a complete implementation, we would fetch and display orders here */}
+              </TabsContent>
+              <TabsContent value="addresses" className="py-4">
+                <p className="text-center text-sm text-muted-foreground">
+                  {selectedCustomer.address ? "Customer has a saved address." : "No saved addresses found."}
+                </p>
+                {selectedCustomer.address && (
+                  <div className="mt-4 p-4 border rounded-lg">
+                    <p>{selectedCustomer.address.street}</p>
+                    <p>{selectedCustomer.address.city}, {selectedCustomer.address.state} {selectedCustomer.address.pincode}</p>
                   </div>
-                </div>
-              </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
 
-              {customerDetails.address && (
-                <div className="mb-6">
-                  <h4 className="font-medium mb-2">Default Address</h4>
-                  <div className="text-sm">
-                    <p>{customerDetails.address.addressLine1}</p>
-                    {customerDetails.address.addressLine2 && <p>{customerDetails.address.addressLine2}</p>}
-                    <p>{customerDetails.address.city}, {customerDetails.address.state} {customerDetails.address.zipCode}</p>
-                    <p>{customerDetails.address.country}</p>
-                  </div>
-                </div>
-              )}
-
-              {customerDetails.recentOrders && customerDetails.recentOrders.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-medium mb-2">Recent Orders</h4>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead>
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {customerDetails.recentOrders.map((order) => (
-                          <tr key={order.id}>
-                            <td className="px-4 py-4 text-sm">{order.id}</td>
-                            <td className="px-4 py-4 text-sm">{new Date(order.createdAt).toLocaleDateString()}</td>
-                            <td className="px-4 py-4 text-sm">₹{order.total.toFixed(2)}</td>
-                            <td className="px-4 py-4">
-                              <span className={`inline-block py-1 px-2 rounded-full text-xs font-medium ${
-                                order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
-                                order.status === 'PROCESSING' ? 'bg-blue-100 text-blue-800' : 
-                                order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {order.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+      {/* Add Customer Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Customer</DialogTitle>
+            <DialogDescription>
+              Create a new customer account. All fields marked with * are required.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter customer's full name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <div className="border-t border-gray-200 mt-6 pt-6 flex justify-between">
-                <Button 
-                  variant={customerDetails.isActive ? "destructive" : "default"}
-                  onClick={() => toggleUserStatus(customerDetails.id, !customerDetails.isActive)}
-                  disabled={isUpdatingStatus}
-                >
-                  {customerDetails.isActive ? (
-                    <>
-                      <UserX className="h-4 w-4 mr-2" />
-                      Disable Account
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      Enable Account
-                    </>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="customer@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="mobile"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter mobile number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password *</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <h3 className="text-sm font-medium mt-4">Address (Optional)</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="address.street"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Street address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </Button>
+                />
                 
-                <Button variant="outline" onClick={closeCustomerDetails}>
-                  Close
-                </Button>
+                <FormField
+                  control={form.control}
+                  name="address.city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="City" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="address.state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State</FormLabel>
+                      <FormControl>
+                        <Input placeholder="State" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="address.pincode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pincode</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Pincode" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </AdminLayout>
+              
+              <DialogFooter className="pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={addCustomerMutation.isPending}
+                >
+                  {addCustomerMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : "Add Customer"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

@@ -1,37 +1,33 @@
-import { useAuth } from '@/hooks/use-auth';
-import { Loader2 } from 'lucide-react';
-import { useRouter } from 'next/router';
-import { ComponentType, useEffect } from 'react';
+import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { Loader2 } from "lucide-react";
+import { Redirect, Route } from "wouter";
 
-export function withAdminProtectedRoute<P extends object>(
-  Component: ComponentType<P>
-) {
-  return function AdminProtectedRoute(props: P) {
-    const { user, isLoading } = useAuth();
-    const router = useRouter();
+export function AdminProtectedRoute({
+  path,
+  component: Component,
+}: {
+  path: string;
+  component: () => React.JSX.Element;
+}) {
+  const { adminUser, isLoading } = useAdminAuth();
 
-    useEffect(() => {
-      if (!isLoading) {
-        if (!user) {
-          router.push('/auth');
-        } else if (user.role !== 'ADMIN') {
-          router.push('/');
-        }
-      }
-    }, [isLoading, user, router]);
-
-    if (isLoading) {
-      return (
+  if (isLoading) {
+    return (
+      <Route path={path}>
         <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-8 w-8 animate-spin text-border" />
         </div>
-      );
-    }
+      </Route>
+    );
+  }
 
-    if (!user || user.role !== 'ADMIN') {
-      return null;
-    }
+  if (!adminUser) {
+    return (
+      <Route path={path}>
+        <Redirect to="/admin/login" />
+      </Route>
+    );
+  }
 
-    return <Component {...props} />;
-  };
+  return <Route path={path} component={Component} />;
 }

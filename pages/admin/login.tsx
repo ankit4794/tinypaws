@@ -1,72 +1,85 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useLocation } from 'wouter';
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function AdminLogin() {
+export default function AdminLoginPage() {
   const { toast } = useToast();
-  const { user, loginMutation, isLoading } = useAuth();
-  const router = useRouter();
+  const { adminUser, adminLoginMutation } = useAdminAuth();
+  const [, navigate] = useLocation();
   const [isAdminLoginFailed, setIsAdminLoginFailed] = useState(false);
+  const isLoading = adminLoginMutation.isPending;
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
 
   useEffect(() => {
     // Redirect to admin dashboard if already logged in as admin
-    if (user && user.role === 'ADMIN') {
-      router.push('/admin');
+    if (adminUser) {
+      navigate('/admin');
     }
-  }, [user, router]);
+  }, [adminUser, navigate]);
 
   const onSubmit = async (data: LoginFormValues) => {
-    try {
-      const user = await loginMutation.mutateAsync(data);
-      
-      if (user.role !== 'ADMIN') {
-        setIsAdminLoginFailed(true);
+    setIsAdminLoginFailed(false);
+    
+    adminLoginMutation.mutate(data, {
+      onSuccess: (user) => {
+        if (user.role !== 'ADMIN') {
+          setIsAdminLoginFailed(true);
+          toast({
+            title: "Access Denied",
+            description: "You don't have admin privileges.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         toast({
-          title: "Access Denied",
-          description: "You don't have admin privileges.",
+          title: "Login Successful",
+          description: "Welcome to the admin dashboard.",
+        });
+        
+        navigate('/admin');
+      },
+      onError: (error) => {
+        console.error("Login error:", error);
+        toast({
+          title: "Login Failed",
+          description: error.message || "Invalid email or password.",
           variant: "destructive",
         });
-        return;
       }
-      
-      toast({
-        title: "Login Successful",
-        description: "Welcome to the admin dashboard.",
-      });
-      
-      router.push('/admin');
-    } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: "Invalid username or password.",
-        variant: "destructive",
-      });
-    }
+    });
   };
 
   return (
@@ -79,15 +92,15 @@ export default function AdminLogin() {
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                {...form.register('username')}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                {...form.register('email')}
               />
-              {form.formState.errors.username && (
-                <p className="text-sm text-red-500">{form.formState.errors.username.message}</p>
+              {form.formState.errors.email && (
+                <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -104,20 +117,34 @@ export default function AdminLogin() {
             </div>
             
             {isAdminLoginFailed && (
-              <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm">
-                You do not have administrator privileges. Please contact the system administrator.
-              </div>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  You don't have admin privileges to access the dashboard.
+                </AlertDescription>
+              </Alert>
             )}
             
-            <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? 'Logging in...' : 'Login'}
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                'Login to Admin Panel'
+              )}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <Link href="/" className="text-sm text-blue-600 hover:underline">
-            Return to website
-          </Link>
+        <CardFooter className="border-t px-6 py-4">
+          <div className="text-sm text-muted-foreground">
+            This is a secured area. Only authorized administrators can access.
+          </div>
         </CardFooter>
       </Card>
     </div>

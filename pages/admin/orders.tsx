@@ -1,612 +1,649 @@
-import * as React from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/router';
-import { ShoppingBag, Truck, Package, Search, Eye, Printer, CheckCircle, XCircle, Edit, AlertCircle } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { format } from 'date-fns';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import { withAdminProtectedRoute } from '@/lib/admin-protected-route';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
+} from "@/components/ui/select";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from "@/components/ui/form";
+import { Loader2, Search, Eye, PlusCircle, Plus, Trash } from "lucide-react";
+import { format } from "date-fns";
+import { z } from "zod";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/hooks/use-toast";
 
-// Define schema for order tracking update
-const updateOrderSchema = z.object({
-  status: z.enum(['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'], {
-    required_error: 'Please select an order status',
-  }),
-  trackingNumber: z.string().optional(),
-  courier: z.string().optional(),
-  notes: z.string().optional(),
+// Schema for order form
+const orderItemSchema = z.object({
+  productId: z.string().min(1, "Product ID is required"),
+  productName: z.string().min(1, "Product name is required"),
+  productImage: z.string().optional(),
+  price: z.number().min(0, "Price must be at least 0"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  selectedColor: z.string().optional(),
+  selectedSize: z.string().optional(),
 });
 
-type UpdateOrderFormValues = z.infer<typeof updateOrderSchema>;
+const orderSchema = z.object({
+  userId: z.string().min(1, "Customer is required"),
+  items: z.array(orderItemSchema).min(1, "At least one item is required"),
+  total: z.number().min(0, "Total must be at least 0"),
+  status: z.string().min(1, "Status is required"),
+  paymentMethod: z.string().min(1, "Payment method is required"),
+  shippingAddress: z.object({
+    street: z.string().min(1, "Street is required"),
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(1, "State is required"),
+    pincode: z.string().min(1, "Pincode is required")
+  })
+});
 
-function AdminOrdersPage() {
-  const router = useRouter();
+type OrderFormValues = z.infer<typeof orderSchema>;
+
+export default function OrdersManagement() {
   const { toast } = useToast();
-  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [dateRange, setDateRange] = React.useState({
-    from: '',
-    to: '',
-  });
-
-  // Form for updating order status
-  const form = useForm<UpdateOrderFormValues>({
-    resolver: zodResolver(updateOrderSchema),
-    defaultValues: {
-      status: 'placed',
-      trackingNumber: '',
-      courier: '',
-      notes: '',
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  
+  // Fetch orders
+  const { data: orders, isLoading } = useQuery({
+    queryKey: ["/api/admin/orders"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/orders");
+      return await res.json();
     },
   });
 
-  // Fetch all orders
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ['/api/admin/orders'],
-    retry: 1,
+  // Fetch customers for the dropdown
+  const { data: customers } = useQuery({
+    queryKey: ["/api/admin/customers"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/customers");
+      return await res.json();
+    },
   });
 
-  // Update order mutation
-  const updateOrderMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateOrderFormValues }) => {
-      return apiRequest('PATCH', `/api/admin/orders/${id}`, data).then(res => res.json());
+  // Fetch products for the dropdown
+  const { data: products } = useQuery({
+    queryKey: ["/api/admin/products"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/products");
+      return await res.json();
+    },
+  });
+
+  // Mutation for adding a new order
+  const addOrderMutation = useMutation({
+    mutationFn: async (data: OrderFormValues) => {
+      const res = await apiRequest("POST", "/api/admin/orders", data);
+      return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: 'Success',
-        description: 'Order updated successfully',
+        title: "Success",
+        description: "Order added successfully",
       });
-      setIsDetailsOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/orders'] });
+      setIsAddDialogOpen(false);
+      // Refetch the orders list
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to add order",
+        variant: "destructive",
       });
     },
   });
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
+  // Form for adding a new order
+  const form = useForm<OrderFormValues>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      userId: "",
+      items: [
+        {
+          productId: "",
+          productName: "",
+          productImage: "",
+          price: 0,
+          quantity: 1,
+          selectedColor: "",
+          selectedSize: "",
+        },
+      ],
+      total: 0,
+      status: "PENDING",
+      paymentMethod: "COD",
+      shippingAddress: {
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
+      },
+    },
+  });
 
-  // Reset form when opening order details
-  React.useEffect(() => {
-    if (selectedOrder) {
-      form.reset({
-        status: selectedOrder.status,
-        trackingNumber: selectedOrder.trackingNumber || '',
-        courier: selectedOrder.courier || '',
-        notes: selectedOrder.notes || '',
-      });
-    }
-  }, [selectedOrder, form]);
+  // Field array for order items
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
 
-  // Get status badge styling
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'placed':
-        return <Badge variant="outline">Placed</Badge>;
-      case 'confirmed':
-        return <Badge variant="secondary">Confirmed</Badge>;
-      case 'shipped':
-        return <Badge variant="secondary">Shipped</Badge>;
-      case 'delivered':
-        return <Badge variant="success">Delivered</Badge>;
-      case 'cancelled':
-        return <Badge variant="destructive">Cancelled</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
-  // Filter orders by status and search
-  const getFilteredOrders = (status: string) => {
-    if (!orders) return [];
+  // Handle product selection
+  const handleProductSelect = (productId: string, index: number) => {
+    if (!products) return;
     
-    let filtered = orders;
-    
-    // Filter by search query if present
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((order: any) => 
-        order.orderNumber.toLowerCase().includes(query) ||
-        order.fullName.toLowerCase().includes(query) ||
-        order.email.toLowerCase().includes(query) ||
-        order.mobile.includes(query)
-      );
-    }
-    
-    // Filter by date range if present
-    if (dateRange.from && dateRange.to) {
-      const fromDate = new Date(dateRange.from);
-      const toDate = new Date(dateRange.to);
-      toDate.setHours(23, 59, 59, 999); // End of day
+    const selectedProduct = products.find(p => p._id === productId);
+    if (selectedProduct) {
+      form.setValue(`items.${index}.productId`, selectedProduct._id);
+      form.setValue(`items.${index}.productName`, selectedProduct.name);
+      form.setValue(`items.${index}.productImage`, selectedProduct.images?.[0] || "");
+      form.setValue(`items.${index}.price`, selectedProduct.price);
       
-      filtered = filtered.filter((order: any) => {
-        const orderDate = new Date(order.createdAt);
-        return orderDate >= fromDate && orderDate <= toDate;
-      });
+      // Recalculate total
+      recalculateTotal();
     }
-    
-    // Filter by status if not 'all'
-    if (status !== 'all') {
-      filtered = filtered.filter((order: any) => order.status === status);
-    }
-    
-    return filtered;
   };
 
-  // View order details
-  const handleViewOrder = (order: any) => {
-    setSelectedOrder(order);
-    setIsDetailsOpen(true);
-  };
-
-  // Close order details dialog
-  const handleCloseDetails = () => {
-    setIsDetailsOpen(false);
-    setSelectedOrder(null);
+  // Recalculate total when items change
+  const recalculateTotal = () => {
+    const items = form.getValues("items");
+    const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    form.setValue("total", total);
   };
 
   // Handle form submission
-  const onSubmit = (data: UpdateOrderFormValues) => {
-    if (selectedOrder) {
-      updateOrderMutation.mutate({
-        id: selectedOrder._id,
-        data,
-      });
+  const onSubmit = (data: OrderFormValues) => {
+    addOrderMutation.mutate(data);
+  };
+
+  // Filter orders based on search query and status filter
+  const filteredOrders = orders ? orders.filter(order => {
+    const matchesSearch = 
+      order._id.includes(searchQuery) || 
+      (order.user?.fullName && order.user.fullName.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  }) : [];
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800";
+      case "PROCESSING":
+        return "bg-blue-100 text-blue-800";
+      case "SHIPPED":
+        return "bg-purple-100 text-purple-800";
+      case "DELIVERED":
+        return "bg-green-100 text-green-800";
+      case "CANCELLED":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  // Print invoice
-  const handlePrintInvoice = (orderId: string) => {
-    // Open invoice in new window/tab
-    window.open(`/api/admin/orders/${orderId}/invoice`, '_blank');
-  };
-
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Orders</h1>
-          <p className="text-muted-foreground">Manage and process customer orders</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Orders</p>
-              <h3 className="text-2xl font-bold">{orders?.length || 0}</h3>
-            </div>
-            <div className="p-3 rounded-full bg-primary/10">
-              <ShoppingBag className="h-6 w-6 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Pending</p>
-              <h3 className="text-2xl font-bold">
-                {orders?.filter((o: any) => o.status === 'placed').length || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-full bg-orange-100">
-              <AlertCircle className="h-6 w-6 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Processing</p>
-              <h3 className="text-2xl font-bold">
-                {orders?.filter((o: any) => 
-                  o.status === 'confirmed' || o.status === 'shipped'
-                ).length || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-full bg-blue-100">
-              <Package className="h-6 w-6 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Delivered</p>
-              <h3 className="text-2xl font-bold">
-                {orders?.filter((o: any) => o.status === 'delivered').length || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-full bg-green-100">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="w-full md:w-64 flex-shrink-0">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search orders..."
-              className="pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-          <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
-            <div>
-              <label htmlFor="date-from" className="block text-sm mb-1">From</label>
-              <Input
-                id="date-from"
-                type="date"
-                value={dateRange.from}
-                onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-              />
-            </div>
-            <div>
-              <label htmlFor="date-to" className="block text-sm mb-1">To</label>
-              <Input
-                id="date-to"
-                type="date"
-                value={dateRange.to}
-                onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="flex-shrink-0">
-            <label className="block text-sm mb-1">Actions</label>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setSearchQuery('');
-                setDateRange({ from: '', to: '' });
-              }}
-            >
-              Reset Filters
-            </Button>
-          </div>
-        </div>
-      </div>
-
+    <div className="container mx-auto py-6">
       <Card>
-        <CardHeader className="px-6 py-4">
-          <CardTitle>All Orders</CardTitle>
-          <CardDescription>View and manage customer orders</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-2xl font-bold">Orders Management</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Order
+            </Button>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="PROCESSING">Processing</SelectItem>
+                <SelectItem value="SHIPPED">Shipped</SelectItem>
+                <SelectItem value="DELIVERED">Delivered</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-pulse flex flex-col items-center">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Loading orders...</p>
-              </div>
+        <CardContent>
+          <div className="mb-4 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by order ID or customer name..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          ) : !orders || orders.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h2 className="text-xl font-medium mb-2">No Orders Found</h2>
-              <p className="text-muted-foreground">
-                There are no orders to display at this time.
-              </p>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center my-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <Tabs defaultValue="all">
-              <div className="px-6">
-                <TabsList className="w-full md:w-auto">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="placed">Placed</TabsTrigger>
-                  <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-                  <TabsTrigger value="shipped">Shipped</TabsTrigger>
-                  <TabsTrigger value="delivered">Delivered</TabsTrigger>
-                  <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="all">
-                <OrdersTable
-                  orders={getFilteredOrders('all')}
-                  onViewOrder={handleViewOrder}
-                  formatCurrency={formatCurrency}
-                  getStatusBadge={getStatusBadge}
-                  onPrintInvoice={handlePrintInvoice}
-                />
-              </TabsContent>
-
-              <TabsContent value="placed">
-                <OrdersTable
-                  orders={getFilteredOrders('placed')}
-                  onViewOrder={handleViewOrder}
-                  formatCurrency={formatCurrency}
-                  getStatusBadge={getStatusBadge}
-                  onPrintInvoice={handlePrintInvoice}
-                />
-              </TabsContent>
-
-              <TabsContent value="confirmed">
-                <OrdersTable
-                  orders={getFilteredOrders('confirmed')}
-                  onViewOrder={handleViewOrder}
-                  formatCurrency={formatCurrency}
-                  getStatusBadge={getStatusBadge}
-                  onPrintInvoice={handlePrintInvoice}
-                />
-              </TabsContent>
-
-              <TabsContent value="shipped">
-                <OrdersTable
-                  orders={getFilteredOrders('shipped')}
-                  onViewOrder={handleViewOrder}
-                  formatCurrency={formatCurrency}
-                  getStatusBadge={getStatusBadge}
-                  onPrintInvoice={handlePrintInvoice}
-                />
-              </TabsContent>
-
-              <TabsContent value="delivered">
-                <OrdersTable
-                  orders={getFilteredOrders('delivered')}
-                  onViewOrder={handleViewOrder}
-                  formatCurrency={formatCurrency}
-                  getStatusBadge={getStatusBadge}
-                  onPrintInvoice={handlePrintInvoice}
-                />
-              </TabsContent>
-
-              <TabsContent value="cancelled">
-                <OrdersTable
-                  orders={getFilteredOrders('cancelled')}
-                  onViewOrder={handleViewOrder}
-                  formatCurrency={formatCurrency}
-                  getStatusBadge={getStatusBadge}
-                  onPrintInvoice={handlePrintInvoice}
-                />
-              </TabsContent>
-            </Tabs>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Payment Method</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        No orders found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredOrders.map((order) => (
+                      <TableRow key={order._id}>
+                        <TableCell className="font-medium">{order._id.slice(-8)}</TableCell>
+                        <TableCell>{order.user?.fullName || "Unknown"}</TableCell>
+                        <TableCell>
+                          {order.createdAt ? format(new Date(order.createdAt), 'dd MMM yyyy') : "N/A"}
+                        </TableCell>
+                        <TableCell>₹{order.total?.toFixed(2) || "0.00"}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getStatusBadgeClass(order.status)}`}>
+                            {order.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>{order.paymentMethod || "N/A"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={() => setSelectedOrder(order)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
-
+      
       {/* Order Details Dialog */}
-      <Dialog
-        open={isDetailsOpen}
-        onOpenChange={(open) => {
-          if (!open) handleCloseDetails();
-        }}
-      >
-        <DialogContent className="max-w-4xl">
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Order Details #{selectedOrder?._id?.slice(-8)}</DialogTitle>
+          </DialogHeader>
           {selectedOrder && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex justify-between items-center">
-                  <span>Order #{selectedOrder.orderNumber}</span>
-                  {getStatusBadge(selectedOrder.status)}
-                </DialogTitle>
-                <DialogDescription>
-                  Placed on {format(new Date(selectedOrder.createdAt), 'dd MMM yyyy, HH:mm')}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-medium mb-2">Customer Details</h3>
-                      <div className="border rounded-md p-3">
-                        <p className="font-medium">{selectedOrder.fullName}</p>
-                        <p>Email: {selectedOrder.email}</p>
-                        <p>Phone: {selectedOrder.mobile}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium mb-2">Shipping Address</h3>
-                      <div className="border rounded-md p-3">
-                        <p>{selectedOrder.address}</p>
-                        <p>
-                          {selectedOrder.city}, {selectedOrder.state} - {selectedOrder.pincode}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium mb-2">Order Items</h3>
-                    <div className="border rounded-md overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Product</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>Price</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
+            <div className="grid grid-cols-1 gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Customer Information</h3>
+                  <p>{selectedOrder.user?.fullName || "Unknown"}</p>
+                  <p>{selectedOrder.user?.email || "No email"}</p>
+                  <p>{selectedOrder.user?.mobile || "No phone"}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Shipping Address</h3>
+                  <p>{selectedOrder.shippingAddress?.street || "No address"}</p>
+                  <p>
+                    {selectedOrder.shippingAddress?.city || ""}{" "}
+                    {selectedOrder.shippingAddress?.state || ""}{" "}
+                    {selectedOrder.shippingAddress?.pincode || ""}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <h3 className="font-semibold mb-2">Order Items</h3>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                        selectedOrder.items.map((item) => (
+                          <TableRow key={item._id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {item.productImage && (
+                                  <img 
+                                    src={item.productImage} 
+                                    alt={item.productName} 
+                                    className="h-10 w-10 rounded-md object-cover"
+                                  />
+                                )}
+                                <div>{item.productName}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>₹{item.price?.toFixed(2) || "0.00"}</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell className="text-right">
+                              ₹{((item.price || 0) * (item.quantity || 0)).toFixed(2)}
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedOrder.items.map((item: any) => (
-                            <TableRow key={item._id}>
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted">
-                                    {item.product?.image ? (
-                                      <Image
-                                        src={item.product.image}
-                                        alt={item.product.name}
-                                        fill
-                                        className="object-cover"
-                                      />
-                                    ) : (
-                                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                                        <ShoppingBag className="h-6 w-6 text-muted-foreground" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="font-medium">
-                                      {item.product?.name || 'Product Unavailable'}
-                                    </p>
-                                    {(item.weight || item.pack || item.variant) && (
-                                      <p className="text-xs text-muted-foreground">
-                                        {item.weight && `Weight: ${item.weight}`}
-                                        {item.weight && item.pack && ' • '}
-                                        {item.pack && `Pack: ${item.pack}`}
-                                        {(item.weight || item.pack) && item.variant && ' • '}
-                                        {item.variant && `Variant: ${item.variant}`}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>{item.quantity}</TableCell>
-                              <TableCell>{formatCurrency(item.price)}</TableCell>
-                              <TableCell className="text-right">
-                                {formatCurrency(item.price * item.quantity)}
-                              </TableCell>
-                            </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4">
+                            No items found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-right font-semibold">Total</TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ₹{selectedOrder.total?.toFixed(2) || "0.00"}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Order Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Order</DialogTitle>
+            <DialogDescription>
+              Create a new order manually. All fields marked with * are required.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Customer Selection */}
+                <FormField
+                  control={form.control}
+                  name="userId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer *</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select customer" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {customers?.map((customer) => (
+                            <SelectItem key={customer._id} value={customer._id}>
+                              {customer.fullName} ({customer.email})
+                            </SelectItem>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium mb-2">Order Summary</h3>
-                    <div className="border rounded-md p-3 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal:</span>
-                        <span>{formatCurrency(selectedOrder.subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">GST (18%):</span>
-                        <span>{formatCurrency(selectedOrder.tax)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Delivery:</span>
-                        <span>{formatCurrency(selectedOrder.deliveryCharge)}</span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between font-medium">
-                        <span>Total:</span>
-                        <span>{formatCurrency(selectedOrder.total)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Payment Method:</span>
-                        <span>
-                          {selectedOrder.paymentMethod === 'cod'
-                            ? 'Cash on Delivery (COD)'
-                            : 'Online Payment'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedOrder.deliveryInstructions && (
-                    <div>
-                      <h3 className="font-medium mb-2">Delivery Instructions</h3>
-                      <div className="border rounded-md p-3">
-                        <p>{selectedOrder.deliveryInstructions}</p>
-                      </div>
-                    </div>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )}
+                />
+
+                {/* Status */}
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Order Status *</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PENDING">Pending</SelectItem>
+                          <SelectItem value="PROCESSING">Processing</SelectItem>
+                          <SelectItem value="SHIPPED">Shipped</SelectItem>
+                          <SelectItem value="DELIVERED">Delivered</SelectItem>
+                          <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Payment Method */}
+                <FormField
+                  control={form.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Method *</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="COD">Cash on Delivery</SelectItem>
+                          <SelectItem value="CREDIT_CARD">Credit Card</SelectItem>
+                          <SelectItem value="DEBIT_CARD">Debit Card</SelectItem>
+                          <SelectItem value="UPI">UPI</SelectItem>
+                          <SelectItem value="NET_BANKING">Net Banking</SelectItem>
+                          <SelectItem value="WALLET">Wallet</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Order Total - Calculated automatically */}
+                <FormField
+                  control={form.control}
+                  name="total"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Total Amount (₹) *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          value={field.value}
+                          disabled
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Shipping Address */}
+              <div>
+                <h3 className="text-md font-medium mb-3">Shipping Address *</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="shippingAddress.street"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Street *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Street address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="shippingAddress.city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="shippingAddress.state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="shippingAddress.pincode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Pincode" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Order Items */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-md font-medium">Order Items *</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({
+                      productId: "",
+                      productName: "",
+                      productImage: "",
+                      price: 0,
+                      quantity: 1,
+                      selectedColor: "",
+                      selectedSize: "",
+                    })}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Item
+                  </Button>
                 </div>
 
-                <div className="lg:col-span-1">
-                  <h3 className="font-medium mb-2">Update Order Status</h3>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 border rounded-md p-3">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="border rounded-md p-4 mb-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-medium">Item #{index + 1}</h4>
+                      {index > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            remove(index);
+                            // Recalculate total after removing an item
+                            setTimeout(recalculateTotal, 0);
+                          }}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Product Selection */}
                       <FormField
                         control={form.control}
-                        name="status"
+                        name={`items.${index}.productId`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Order Status</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormLabel>Product *</FormLabel>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                handleProductSelect(value, index);
+                              }} 
+                              defaultValue={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select status" />
+                                  <SelectValue placeholder="Select product" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="placed">Placed</SelectItem>
-                                <SelectItem value="confirmed">Confirmed</SelectItem>
-                                <SelectItem value="shipped">Shipped</SelectItem>
-                                <SelectItem value="delivered">Delivered</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                {products?.map((product) => (
+                                  <SelectItem key={product._id} value={product._id}>
+                                    {product.name}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -614,177 +651,82 @@ function AdminOrdersPage() {
                         )}
                       />
 
-                      {(form.watch('status') === 'shipped' || form.watch('status') === 'delivered') && (
-                        <>
-                          <FormField
-                            control={form.control}
-                            name="trackingNumber"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Tracking Number</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="Enter tracking number"
-                                    {...field}
-                                    value={field.value || ''}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name="courier"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Courier Service</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="Enter courier service name"
-                                    {...field}
-                                    value={field.value || ''}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </>
-                      )}
-
+                      {/* Product Quantity */}
                       <FormField
                         control={form.control}
-                        name="notes"
+                        name={`items.${index}.quantity`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Notes (Optional)</FormLabel>
+                            <FormLabel>Quantity *</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Add internal notes"
+                                type="number"
+                                min="1"
                                 {...field}
-                                value={field.value || ''}
+                                onChange={(e) => {
+                                  field.onChange(parseInt(e.target.value) || 1);
+                                  // Recalculate total after quantity change
+                                  setTimeout(recalculateTotal, 0);
+                                }}
                               />
                             </FormControl>
-                            <FormDescription>
-                              These notes are for internal use only
-                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      <Button
-                        type="submit"
-                        disabled={updateOrderMutation.isPending}
-                        className="w-full"
-                      >
-                        {updateOrderMutation.isPending ? 'Updating...' : 'Update Order'}
-                      </Button>
-                    </form>
-                  </Form>
-
-                  <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => handlePrintInvoice(selectedOrder._id)}
-                    >
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print Invoice
-                    </Button>
+                      {/* Product Price */}
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.price`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Price (₹) *</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(parseFloat(e.target.value) || 0);
+                                  // Recalculate total after price change
+                                  setTimeout(recalculateTotal, 0);
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            </>
-          )}
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={addOrderMutation.isPending}
+                >
+                  {addOrderMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Order...
+                    </>
+                  ) : "Create Order"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
-// Orders Table Component
-function OrdersTable({
-  orders,
-  onViewOrder,
-  formatCurrency,
-  getStatusBadge,
-  onPrintInvoice,
-}: {
-  orders: any[];
-  onViewOrder: (order: any) => void;
-  formatCurrency: (amount: number) => string;
-  getStatusBadge: (status: string) => React.ReactNode;
-  onPrintInvoice: (orderId: string) => void;
-}) {
-  if (!orders || orders.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">No orders found</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border-t">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Order ID</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Payment</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow key={order._id}>
-              <TableCell className="font-medium">#{order.orderNumber}</TableCell>
-              <TableCell>
-                <div>
-                  <p className="font-medium">{order.fullName}</p>
-                  <p className="text-xs text-muted-foreground">{order.email}</p>
-                </div>
-              </TableCell>
-              <TableCell>
-                {format(new Date(order.createdAt), 'dd MMM yyyy')}
-              </TableCell>
-              <TableCell>{getStatusBadge(order.status)}</TableCell>
-              <TableCell>
-                {order.paymentMethod === 'cod' ? 'COD' : 'Online'}
-              </TableCell>
-              <TableCell>{formatCurrency(order.total)}</TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      Actions
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onViewOrder(order)}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onPrintInvoice(order._id)}>
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print Invoice
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-export default withAdminProtectedRoute(AdminOrdersPage);
