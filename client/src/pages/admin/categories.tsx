@@ -83,7 +83,9 @@ export default function CategoriesManagement() {
         description: "Category added successfully",
       });
       setIsAddDialogOpen(false);
+      // Invalidate both admin categories and frontend categories
       queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
     },
     onError: (error) => {
       toast({
