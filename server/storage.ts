@@ -51,6 +51,7 @@ export interface IStorage {
   getBrandById(id: string): Promise<Brand | undefined>;
   getBrandBySlug(slug: string): Promise<Brand | undefined>;
   getProductsByBrand(brandId: string): Promise<Product[]>;
+  getFeaturedBrands(limit?: number): Promise<Brand[]>;
   
   // Cart-related methods
   getCartItems(userId: string): Promise<CartItem[]>;
@@ -107,10 +108,9 @@ export interface IStorage {
   getCategoryById?: (id: string) => Promise<Category | undefined>; 
   
   // Brand methods
-  createBrand?: (brandData: any) => Promise<Brand>;
-  updateBrand?: (id: string, brandData: any) => Promise<Brand | undefined>;
-  deleteBrand?: (id: string) => Promise<void>;
-  getFeaturedBrands?: (limit?: number) => Promise<Brand[]>;
+  createBrand: (brandData: any) => Promise<Brand>;
+  updateBrand: (id: string, brandData: any) => Promise<Brand | undefined>;
+  deleteBrand: (id: string) => Promise<void>;
   
   getContactSubmissions?: (resolved?: boolean) => Promise<ContactSubmission[]>;
   updateContactSubmissionStatus?: (id: string, isResolved: boolean) => Promise<ContactSubmission | undefined>;

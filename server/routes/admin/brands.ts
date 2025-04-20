@@ -1,6 +1,6 @@
 import express from 'express';
 import { storageProvider } from '../../index';
-import { isAdmin } from '../../middleware/admin-auth';
+import { requireAdmin } from '../../middleware/admin-auth';
 import { slugify } from '../../utils/helpers';
 import multer from 'multer';
 import { uploadToGCS } from '../../services/gcs-upload';
@@ -8,7 +8,7 @@ import { uploadToGCS } from '../../services/gcs-upload';
 const router = express.Router();
 
 // Apply admin authentication middleware
-router.use(isAdmin);
+router.use(requireAdmin);
 
 // Get all brands
 router.get('/', async (req, res) => {
