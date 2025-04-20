@@ -5,6 +5,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/hooks/use-auth';
 import { AdminAuthProvider } from '@/hooks/use-admin-auth';
+import { CartProvider } from '@/hooks/use-cart';
+import { WishlistProvider } from '@/hooks/use-wishlist';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { queryClient } from '@/lib/queryClient';
@@ -16,10 +18,14 @@ export default function App({ Component, pageProps }: AppProps) {
       <ThemeProvider defaultTheme="light" attribute="class">
         <AuthProvider>
           <AdminAuthProvider>
-            <TooltipProvider>
-              <Component {...pageProps} />
-              <Toaster />
-            </TooltipProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <TooltipProvider>
+                  <Component {...pageProps} />
+                  <Toaster />
+                </TooltipProvider>
+              </WishlistProvider>
+            </CartProvider>
           </AdminAuthProvider>
         </AuthProvider>
       </ThemeProvider>
