@@ -10,8 +10,10 @@ const router = express.Router();
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    console.log(`Admin login attempt for email: ${email}`);
     
     if (!email || !password) {
+      console.log('Missing email or password');
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
@@ -19,11 +21,15 @@ router.post('/login', async (req: Request, res: Response) => {
     const user = await storageProvider.instance.getUserByEmail(email);
     
     if (!user) {
+      console.log(`User not found: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
+    console.log(`User found with role: ${user.role}`);
+    
     // Check if user has admin role
     if (user.role !== 'ADMIN') {
+      console.log(`User ${email} has no admin role: ${user.role}`);
       return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
     }
     
@@ -31,24 +37,31 @@ router.post('/login', async (req: Request, res: Response) => {
     const isPasswordValid = await comparePasswords(password, user.password);
     
     if (!isPasswordValid) {
+      console.log(`Invalid password for user: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    
+    console.log(`Password valid for: ${email}, attempting to login with Passport`);
     
     // Login the user using Passport
     req.login(user, (err) => {
       if (err) {
-        return res.status(500).json({ error: 'Login failed' });
+        console.error(`Login error in req.login: ${err.message}`);
+        return res.status(500).json({ error: `Login failed: ${err.message}` });
       }
       
       // Return user info without sensitive data
       const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
+      
       // Remove password from response
       const { password, ...userWithoutPassword } = userObj;
+      console.log(`Admin login successful for: ${email}`);
       res.status(200).json(userWithoutPassword);
     });
   } catch (error) {
     console.error('Admin login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: `Internal server error: ${errorMessage}` });
   }
 });
 
