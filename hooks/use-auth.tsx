@@ -4,7 +4,7 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { User } from "@shared/schema";
+import { User } from "@shared/next-schema";
 import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 

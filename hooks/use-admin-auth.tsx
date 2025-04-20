@@ -4,6 +4,7 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
+import { UserRole } from "@shared/next-schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
