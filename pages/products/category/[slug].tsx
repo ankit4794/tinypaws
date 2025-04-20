@@ -11,9 +11,10 @@ import { Product } from '@shared/schema';
 import { useProducts } from '@/hooks/use-products';
 import { useCategories } from '@/hooks/use-categories';
 
-const ProductsPage = () => {
+const CategoryProductsPage = () => {
   const router = useRouter();
-  const { category, subcategory = '', brand = '', sortOrder = 'newest' } = router.query;
+  const { slug, subcategory = '', brand = '', sortOrder = 'newest' } = router.query;
+  const category = slug; // For backward compatibility
   
   const [filters, setFilters] = useState({
     priceRange: [0, 10000] as [number, number],
@@ -421,4 +422,4 @@ const ProductsPage = () => {
   );
 };
 
-export default ProductsPage;
+export default CategoryProductsPage;

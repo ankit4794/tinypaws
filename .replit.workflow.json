@@ -1,12 +1,16 @@
 {
   "workflows": [
     {
-      "name": "Start application (NextJS)",
-      "command": "bash dev-nextjs.sh"
+      "name": "Start application",
+      "command": "bash ./start-servers.sh"
     },
     {
-      "name": "Start application (Express)",
+      "name": "Start Express API only",
       "command": "npm run dev"
+    },
+    {
+      "name": "Start Next.js only",
+      "command": "npx next dev"
     }
   ]
 }
