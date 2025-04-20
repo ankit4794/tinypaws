@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useAdminProducts } from "@/hooks/admin/use-admin-products";
 import { useCategories } from "@/hooks/use-categories";
 import { Button } from "@/components/ui/button";
-import { AdminLayout } from "@/components/admin/layout";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +54,7 @@ import { Loader2, Trash2, Plus, Edit, Tag, PackageOpen } from "lucide-react";
 import { insertProductSchema, insertProductVariantSchema } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { AdminLayout } from "@/components/admin/layout";
 
 // Extend the product schema for form validation
 const productFormSchema = insertProductSchema
