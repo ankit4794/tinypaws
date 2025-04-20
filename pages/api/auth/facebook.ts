@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 // Facebook OAuth client
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/auth/facebook/callback`;
+const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5001'}/api/auth/facebook/callback`;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Validate configuration

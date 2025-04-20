@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Trash2, Plus, X, Check, ImagePlus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Trash2, Plus, X, Check, ImagePlus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -23,7 +23,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Card,
   CardContent,
@@ -31,12 +31,12 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { AdminLayout } from '@/components/admin/layout';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { apiRequest } from '@/lib/queryClient';
-import { useLocation } from 'wouter';
+} from "@/components/ui/card";
+import { AdminLayout } from "@/components/admin/layout";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 type Brand = {
   _id: string;
@@ -47,7 +47,7 @@ type Brand = {
   bannerImage?: string;
   featured: boolean;
   discount?: {
-    type: 'flat' | 'percentage' | 'none';
+    type: "flat" | "percentage" | "none";
     value: number;
     label?: string;
   };
@@ -63,7 +63,7 @@ type BrandFormData = {
   featured: boolean;
   isActive: boolean;
   discount: {
-    type: 'flat' | 'percentage' | 'none';
+    type: "flat" | "percentage" | "none";
     value: number;
     label?: string;
   };
@@ -77,14 +77,14 @@ export default function AdminBrandsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [formData, setFormData] = useState<BrandFormData>({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
     featured: false,
     isActive: true,
     discount: {
-      type: 'none',
+      type: "none",
       value: 0,
-      label: '',
+      label: "",
     },
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -92,22 +92,28 @@ export default function AdminBrandsPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<
+    string | null
+  >(null);
 
   // Redirect if not admin
   useEffect(() => {
-    if (user && user.role !== 'ADMIN') {
-      navigate('/');
+    if (user && user.role !== "ADMIN") {
+      navigate("/");
     }
   }, [user, navigate]);
 
   // Fetch brands
-  const { data: brands, isLoading, error } = useQuery({
-    queryKey: ['/api/admin/brands'],
+  const {
+    data: brands,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["/api/admin/brands"],
     queryFn: async () => {
-      const response = await fetch('/api/admin/brands');
+      const response = await fetch("/api/admin/brands");
       if (!response.ok) {
-        throw new Error('Failed to fetch brands');
+        throw new Error("Failed to fetch brands");
       }
       return response.json();
     },
@@ -116,63 +122,69 @@ export default function AdminBrandsPage() {
   // Create brand mutation
   const createBrandMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await fetch('/api/admin/brands', {
-        method: 'POST',
+      const response = await fetch("/api/admin/brands", {
+        method: "POST",
         body: formData,
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to create brand');
+        throw new Error("Failed to create brand");
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/brands'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/brands"] });
       toast({
-        title: 'Brand created',
-        description: 'The brand has been created successfully.',
+        title: "Brand created",
+        description: "The brand has been created successfully.",
       });
       resetForm();
       setIsModalOpen(false);
     },
     onError: (error: Error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
 
   // Update brand mutation
   const updateBrandMutation = useMutation({
-    mutationFn: async ({ id, formData }: { id: string; formData: FormData }) => {
+    mutationFn: async ({
+      id,
+      formData,
+    }: {
+      id: string;
+      formData: FormData;
+    }) => {
       const response = await fetch(`/api/admin/brands/${id}`, {
-        method: 'PUT',
+        method: "PUT",
         body: formData,
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to update brand');
+        throw new Error("Failed to update brand");
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/brands'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/brands"] });
       toast({
-        title: 'Brand updated',
-        description: 'The brand has been updated successfully.',
+        title: "Brand updated",
+        description: "The brand has been updated successfully.",
       });
       resetForm();
       setIsModalOpen(false);
     },
     onError: (error: Error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
@@ -180,31 +192,35 @@ export default function AdminBrandsPage() {
   // Delete brand mutation
   const deleteBrandMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/admin/brands/${id}`);
+      const response = await apiRequest("DELETE", `/api/admin/brands/${id}`);
       return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/brands'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/brands"] });
       toast({
-        title: 'Brand deleted',
-        description: 'The brand has been deleted successfully.',
+        title: "Brand deleted",
+        description: "The brand has been deleted successfully.",
       });
       setDeleteConfirmationId(null);
     },
     onError: (error: Error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
-    
-    if (name.startsWith('discount.')) {
-      const discountField = name.split('.')[1];
+
+    if (name.startsWith("discount.")) {
+      const discountField = name.split(".")[1];
       setFormData({
         ...formData,
         discount: {
@@ -245,14 +261,14 @@ export default function AdminBrandsPage() {
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      description: '',
+      name: "",
+      description: "",
       featured: false,
       isActive: true,
       discount: {
-        type: 'none',
+        type: "none",
         value: 0,
-        label: '',
+        label: "",
       },
     });
     setLogoFile(null);
@@ -268,13 +284,13 @@ export default function AdminBrandsPage() {
     setFormData({
       name: brand.name,
       slug: brand.slug,
-      description: brand.description || '',
+      description: brand.description || "",
       featured: brand.featured,
       isActive: brand.isActive,
       discount: brand.discount || {
-        type: 'none',
+        type: "none",
         value: 0,
-        label: '',
+        label: "",
       },
     });
     setLogoPreview(brand.logo);
@@ -298,26 +314,29 @@ export default function AdminBrandsPage() {
 
     try {
       const formDataToSend = new FormData();
-      
+
       // Add brand data as JSON
-      formDataToSend.append('data', JSON.stringify(formData));
-      
+      formDataToSend.append("data", JSON.stringify(formData));
+
       // Add files if selected
       if (logoFile) {
-        formDataToSend.append('logo', logoFile);
+        formDataToSend.append("logo", logoFile);
       }
-      
+
       if (bannerFile) {
-        formDataToSend.append('bannerImage', bannerFile);
+        formDataToSend.append("bannerImage", bannerFile);
       }
-      
+
       if (editingBrand) {
-        await updateBrandMutation.mutateAsync({ id: editingBrand._id, formData: formDataToSend });
+        await updateBrandMutation.mutateAsync({
+          id: editingBrand._id,
+          formData: formDataToSend,
+        });
       } else {
         await createBrandMutation.mutateAsync(formDataToSend);
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error("Error submitting form:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -326,136 +345,167 @@ export default function AdminBrandsPage() {
   return (
     <AdminLayout>
       <div className="container mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Brand Management</h1>
-          <Button onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}>
-            <Plus className="mr-2 h-4 w-4" /> Add Brand
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <svg className="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+          <div className="space-y-1.5 p-6 flex flex-row items-center justify-between">
+            <h1 className="text-3xl font-bold">Brand Management</h1>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsModalOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add Brand
+            </Button>
           </div>
-        ) : error ? (
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <div className="text-center text-red-500">
-                <p>Failed to load brands. Please try again.</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="overflow-auto">
-            <Table>
-              <TableCaption>List of all brands ({brands?.length || 0})</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[60px]">Logo</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Featured</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {brands && brands.length > 0 ? (
-                  brands.map((brand: Brand) => (
-                    <TableRow key={brand._id}>
-                      <TableCell>
-                        {brand.logo && (
-                          <img 
-                            src={brand.logo} 
-                            alt={brand.name} 
-                            className="w-10 h-10 object-contain"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">{brand.name}</TableCell>
-                      <TableCell>{brand.slug}</TableCell>
-                      <TableCell>
-                        {brand.featured ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Featured
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            Regular
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {brand.isActive ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Inactive
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleEditClick(brand)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm" 
-                            onClick={() => handleDeleteClick(brand._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <svg
+                className="animate-spin h-8 w-8 text-primary"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            </div>
+          ) : error ? (
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="text-center text-red-500">
+                  <p>Failed to load brands. Please try again.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="overflow-auto">
+              <Table>
+                <TableCaption>
+                  List of all brands ({brands?.length || 0})
+                </TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[60px]">Logo</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Featured</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {brands && brands.length > 0 ? (
+                    brands.map((brand: Brand) => (
+                      <TableRow key={brand._id}>
+                        <TableCell>
+                          {brand.logo && (
+                            <img
+                              src={brand.logo}
+                              alt={brand.name}
+                              className="w-10 h-10 object-contain"
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {brand.name}
+                        </TableCell>
+                        <TableCell>{brand.slug}</TableCell>
+                        <TableCell>
+                          {brand.featured ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Featured
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              Regular
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {brand.isActive ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              Inactive
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditClick(brand)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteClick(brand._id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        No brands found. Click "Add Brand" to create your first
+                        brand.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      No brands found. Click "Add Brand" to create your first brand.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
 
         {/* Brand Form Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingBrand ? 'Edit Brand' : 'Add New Brand'}</DialogTitle>
+              <DialogTitle>
+                {editingBrand ? "Edit Brand" : "Add New Brand"}
+              </DialogTitle>
               <DialogDescription>
-                {editingBrand ? 'Update the brand details below.' : 'Fill in the brand details below to create a new brand.'}
+                {editingBrand
+                  ? "Update the brand details below."
+                  : "Fill in the brand details below to create a new brand."}
               </DialogDescription>
             </DialogHeader>
-            
+
             <form onSubmit={handleSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 gap-4">
                   {/* Logo Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="logo" className="block">Brand Logo</Label>
+                    <Label htmlFor="logo" className="block">
+                      Brand Logo
+                    </Label>
                     <div className="flex items-center space-x-4">
                       {logoPreview && (
                         <div className="relative">
-                          <img 
-                            src={logoPreview} 
-                            alt="Logo Preview" 
+                          <img
+                            src={logoPreview}
+                            alt="Logo Preview"
                             className="w-20 h-20 object-contain border rounded-md"
                           />
                           <button
@@ -471,12 +521,12 @@ export default function AdminBrandsPage() {
                         </div>
                       )}
                       <div className="flex-1">
-                        <Label 
-                          htmlFor="logo-upload" 
+                        <Label
+                          htmlFor="logo-upload"
                           className="cursor-pointer flex items-center justify-center w-full h-10 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                         >
                           <ImagePlus className="mr-2 h-4 w-4" />
-                          {logoPreview ? 'Change Logo' : 'Upload Logo'}
+                          {logoPreview ? "Change Logo" : "Upload Logo"}
                         </Label>
                         <input
                           id="logo-upload"
@@ -495,13 +545,15 @@ export default function AdminBrandsPage() {
 
                   {/* Banner Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="banner" className="block">Banner Image (Optional)</Label>
+                    <Label htmlFor="banner" className="block">
+                      Banner Image (Optional)
+                    </Label>
                     <div className="flex items-center space-x-4">
                       {bannerPreview && (
                         <div className="relative">
-                          <img 
-                            src={bannerPreview} 
-                            alt="Banner Preview" 
+                          <img
+                            src={bannerPreview}
+                            alt="Banner Preview"
                             className="w-40 h-20 object-cover border rounded-md"
                           />
                           <button
@@ -517,12 +569,12 @@ export default function AdminBrandsPage() {
                         </div>
                       )}
                       <div className="flex-1">
-                        <Label 
-                          htmlFor="banner-upload" 
+                        <Label
+                          htmlFor="banner-upload"
                           className="cursor-pointer flex items-center justify-center w-full h-10 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                         >
                           <ImagePlus className="mr-2 h-4 w-4" />
-                          {bannerPreview ? 'Change Banner' : 'Upload Banner'}
+                          {bannerPreview ? "Change Banner" : "Upload Banner"}
                         </Label>
                         <input
                           id="banner-upload"
@@ -541,7 +593,9 @@ export default function AdminBrandsPage() {
 
                   {/* Brand Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="block">Brand Name*</Label>
+                    <Label htmlFor="name" className="block">
+                      Brand Name*
+                    </Label>
                     <Input
                       id="name"
                       name="name"
@@ -553,11 +607,13 @@ export default function AdminBrandsPage() {
 
                   {/* Slug (optional in form, will be auto-generated if not provided) */}
                   <div className="space-y-2">
-                    <Label htmlFor="slug" className="block">Slug (Optional)</Label>
+                    <Label htmlFor="slug" className="block">
+                      Slug (Optional)
+                    </Label>
                     <Input
                       id="slug"
                       name="slug"
-                      value={formData.slug || ''}
+                      value={formData.slug || ""}
                       onChange={handleInputChange}
                       placeholder="auto-generated-if-empty"
                     />
@@ -568,11 +624,13 @@ export default function AdminBrandsPage() {
 
                   {/* Description */}
                   <div className="space-y-2">
-                    <Label htmlFor="description" className="block">Description (Optional)</Label>
+                    <Label htmlFor="description" className="block">
+                      Description (Optional)
+                    </Label>
                     <Textarea
                       id="description"
                       name="description"
-                      value={formData.description || ''}
+                      value={formData.description || ""}
                       onChange={handleInputChange}
                       rows={3}
                     />
@@ -583,7 +641,9 @@ export default function AdminBrandsPage() {
                     <Checkbox
                       id="featured"
                       checked={formData.featured}
-                      onCheckedChange={(checked) => handleCheckboxChange('featured', !!checked)}
+                      onCheckedChange={(checked) =>
+                        handleCheckboxChange("featured", !!checked)
+                      }
                     />
                     <Label htmlFor="featured">Featured Brand</Label>
                   </div>
@@ -593,13 +653,15 @@ export default function AdminBrandsPage() {
                     <Checkbox
                       id="isActive"
                       checked={formData.isActive}
-                      onCheckedChange={(checked) => handleCheckboxChange('isActive', !!checked)}
+                      onCheckedChange={(checked) =>
+                        handleCheckboxChange("isActive", !!checked)
+                      }
                     />
                     <Label htmlFor="isActive">Active</Label>
                   </div>
                 </div>
               </div>
-              
+
               <DialogFooter>
                 <Button
                   type="button"
@@ -615,14 +677,30 @@ export default function AdminBrandsPage() {
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Processing...
                     </>
                   ) : (
-                    <>{editingBrand ? 'Update Brand' : 'Create Brand'}</>
+                    <>{editingBrand ? "Update Brand" : "Create Brand"}</>
                   )}
                 </Button>
               </DialogFooter>
@@ -631,12 +709,16 @@ export default function AdminBrandsPage() {
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <Dialog open={!!deleteConfirmationId} onOpenChange={(open) => !open && setDeleteConfirmationId(null)}>
+        <Dialog
+          open={!!deleteConfirmationId}
+          onOpenChange={(open) => !open && setDeleteConfirmationId(null)}
+        >
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Confirm Deletion</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete this brand? This action cannot be undone.
+                Are you sure you want to delete this brand? This action cannot
+                be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -648,12 +730,12 @@ export default function AdminBrandsPage() {
               >
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={confirmDelete}
                 disabled={deleteBrandMutation.isPending}
               >
-                {deleteBrandMutation.isPending ? 'Deleting...' : 'Delete Brand'}
+                {deleteBrandMutation.isPending ? "Deleting..." : "Delete Brand"}
               </Button>
             </DialogFooter>
           </DialogContent>

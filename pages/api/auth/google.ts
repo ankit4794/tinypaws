@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 // Google OAuth client
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/auth/google/callback`;
+const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5001'}/api/auth/google/callback`;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Validate configuration
