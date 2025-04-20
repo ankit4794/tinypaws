@@ -79,9 +79,15 @@ export interface IStorage {
   createProduct?: (productData: any) => Promise<Product>;
   updateProduct?: (id: string, productData: any) => Promise<Product | undefined>;
   deleteProduct?: (id: string) => Promise<void>;
+  // Product variant methods
+  addProductVariant?: (productId: string, variantData: any) => Promise<Product | undefined>;
+  updateProductVariant?: (productId: string, variantId: string, variantData: any) => Promise<Product | undefined>;
+  deleteProductVariant?: (productId: string, variantId: string) => Promise<Product | undefined>;
+  // Category methods
   createCategory?: (categoryData: any) => Promise<Category>;
   updateCategory?: (id: string, categoryData: any) => Promise<Category | undefined>;
   deleteCategory?: (id: string) => Promise<void>;
+  getCategoryById?: (id: string) => Promise<Category | undefined>; 
   getContactSubmissions?: (resolved?: boolean) => Promise<ContactSubmission[]>;
   updateContactSubmissionStatus?: (id: string, isResolved: boolean) => Promise<ContactSubmission | undefined>;
 }

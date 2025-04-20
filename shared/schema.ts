@@ -564,6 +564,22 @@ export type CategoryDocument = mongoose.Document & {
 export type Category = CategoryDocument;
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type ProductVariantDocument = {
+  _id: string;
+  name: string;
+  sku: string;
+  price: number;
+  originalPrice?: number | null;
+  stock: number;
+  weight?: number | null;
+  weightUnit?: 'g' | 'kg' | null;
+  packSize?: number | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
 export type ProductDocument = mongoose.Document & {
   name: string;
   slug: string;
@@ -580,6 +596,9 @@ export type ProductDocument = mongoose.Document & {
   rating: number;
   reviewCount: number;
   isActive: boolean;
+  hasVariants?: boolean;
+  variantType?: 'weight' | 'pack' | 'none';
+  variants?: ProductVariantDocument[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -592,6 +611,9 @@ export type CartItemDocument = mongoose.Document & {
   quantity: number;
   selectedColor?: string | null;
   selectedSize?: string | null;
+  selectedVariantId?: string | null;
+  selectedVariantName?: string | null;
+  variantPrice?: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -629,6 +651,9 @@ export type OrderItemDocument = mongoose.Document & {
   price: number;
   selectedColor?: string | null;
   selectedSize?: string | null;
+  selectedVariantId?: string | null;
+  selectedVariantName?: string | null;
+  variantPrice?: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
