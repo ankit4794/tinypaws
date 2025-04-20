@@ -1,12 +1,14 @@
-// This is a minimal file to satisfy the Vite server
-// In our new architecture, we're using Next.js instead of Vite for the frontend
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css';
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { CartProvider } from "@/hooks/use-cart";
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+createRoot(document.getElementById("root")!).render(
+  <QueryClientProvider client={queryClient}>
+    <CartProvider>
+      <App />
+    </CartProvider>
+  </QueryClientProvider>
 );

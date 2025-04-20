@@ -1,29 +1,33 @@
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '../hooks/use-auth';
+import { useAuth } from "@/hooks/use-auth";
+import { Loader2 } from "lucide-react";
+import { Redirect, Route } from "wouter";
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const router = useRouter();
+export function ProtectedRoute({
+  path,
+  component: Component,
+}: {
+  path: string;
+  component: () => React.JSX.Element;
+}) {
   const { user, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/auth');
-    }
-  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
-      </div>
+      <Route path={path}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-border" />
+        </div>
+      </Route>
     );
   }
 
-  // Only render children if user is authenticated
-  return user ? <>{children}</> : null;
+  if (!user) {
+    return (
+      <Route path={path}>
+        <Redirect to="/auth" />
+      </Route>
+    );
+  }
+
+  return <Route path={path} component={Component} />;
 }

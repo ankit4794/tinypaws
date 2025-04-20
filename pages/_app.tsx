@@ -1,19 +1,9 @@
 import type { AppProps } from 'next/app';
-import React from 'react';
-import { AuthProvider } from '../hooks/use-auth';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import '../styles/globals.css';
-
-// Create a client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60 * 1000, // 1 minute
-      refetchOnWindowFocus: false,
-      retry: false,
-    },
-  },
-});
+import { AuthProvider } from '@/hooks/use-auth';
+import { Toaster } from '@/components/ui/toaster';
+import '@/styles/globals.css';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 export default function App({ Component, pageProps }: AppProps) {
   // Check if the current path is an admin route
@@ -23,14 +13,16 @@ export default function App({ Component, pageProps }: AppProps) {
       false;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <div className="flex flex-col min-h-screen">
-          <main className="flex-grow">
-            <Component {...pageProps} />
-          </main>
-        </div>
-      </AuthProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <div className="flex flex-col min-h-screen">
+        {/* Only add header/footer for non-admin pages */}
+        {!isAdminRoute && <Header />}
+        <main className="flex-grow">
+          <Component {...pageProps} />
+        </main>
+        {!isAdminRoute && <Footer />}
+      </div>
+      <Toaster />
+    </AuthProvider>
   );
 }

@@ -1,16 +1,12 @@
 {
   "workflows": [
     {
-      "name": "Start application",
-      "command": "NODE_ENV=development tsx server/index.ts"
+      "name": "Start application (NextJS)",
+      "command": "bash dev-nextjs.sh"
     },
     {
-      "name": "Start Next.js",
-      "command": "NODE_OPTIONS=\"--experimental-json-modules\" npx next dev -p 3000 -H 0.0.0.0"
-    },
-    {
-      "name": "Start Express API",
-      "command": "NODE_ENV=development tsx server/index.ts"
+      "name": "Start application (Express)",
+      "command": "npm run dev"
     }
   ]
 }

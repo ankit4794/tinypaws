@@ -1,44 +1,93 @@
-import { useEffect } from 'react';
-import { Router, Route, Switch } from 'wouter';
-import './index.css';
+import { Switch, Route, useLocation } from "wouter";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import NotFound from "@/pages/not-found";
+import HomePage from "@/pages/home-page";
+import AuthPage from "@/pages/auth-page";
+import ProductsPage from "@/pages/products-page";
+import ProductDetailPage from "@/pages/product-detail-page";
+import CartPage from "@/pages/cart-page";
+import AboutPage from "@/pages/about-page";
+import ContactPage from "@/pages/contact-page";
+import PrivacyPage from "@/pages/privacy-policy";
+import TermsPage from "@/pages/terms-page";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import AdminHeader from "@/components/layout/AdminHeader";
+import AdminFooter from "@/components/layout/AdminFooter";
+import { ProtectedRoute } from "@/lib/protected-route";
+import { AdminProtectedRoute } from "@/lib/admin-protected-route";
+import { AuthProvider } from "@/hooks/use-auth";
+import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 
-// This is a wrapper component that redirects to the Next.js server
-function NextJsRedirect() {
-  useEffect(() => {
-    console.log("TinyPaws is now using Next.js - please visit the Next.js server at port 3000");
-    // For development in Replit, we can't directly redirect
-    // In a production environment, this would be a window.location.href redirect
-  }, []);
+// Import admin pages
+import AdminLoginPage from "./pages/admin/login-page";
+import AdminDashboard from "./pages/admin/index";
+import AdminDashboardPage from "./pages/admin/dashboard";
+import HelpDeskPage from "./pages/admin/help-desk";
+import PincodesPage from "./pages/admin/pincodes";
+import ReviewsPage from "./pages/admin/reviews";
+import ProductsManagement from "./pages/admin/products";
+import OrdersManagement from "./pages/admin/orders";
+import CustomersManagement from "./pages/admin/customers";
+import CategoriesManagement from "./pages/admin/categories";
+import BrandsManagement from "./pages/admin/brands";
 
+function Router() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white p-6 rounded-lg shadow-md max-w-md w-full">
-        <h1 className="text-2xl font-bold text-center mb-4">TinyPaws Pet Store</h1>
-        <p className="text-center mb-6">
-          This application is now using Next.js for the frontend.
-        </p>
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-6">
-          <p className="text-yellow-700">
-            <strong>Important:</strong> Please access the Next.js server at:
-          </p>
-          <p className="text-blue-600 block mt-2 text-center">
-            Visit the Next.js server on port 3000
-          </p>
-        </div>
-        <p className="text-sm text-gray-600 text-center">
-          If using Replit, please use the webview controls to navigate to port 3000 where the Next.js application is running.
-        </p>
-      </div>
-    </div>
+    <Switch>
+      <Route path="/" component={HomePage} />
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/products/:category" component={ProductsPage} />
+      <Route path="/products/:category/:subcategory" component={ProductsPage} />
+      <Route path="/product/:id" component={ProductDetailPage} />
+      <Route path="/cart" component={CartPage} />
+      <Route path="/about" component={AboutPage} />
+      <Route path="/contact" component={ContactPage} />
+      <Route path="/privacy-policy" component={PrivacyPage} />
+      <Route path="/terms" component={TermsPage} />
+      
+      {/* Admin routes */}
+      <Route path="/admin/login" component={AdminLoginPage} />
+      <AdminProtectedRoute path="/admin" component={AdminDashboard} />
+      <AdminProtectedRoute path="/admin/dashboard" component={AdminDashboardPage} />
+      <AdminProtectedRoute path="/admin/help-desk" component={HelpDeskPage} />
+      <AdminProtectedRoute path="/admin/pincodes" component={PincodesPage} />
+      <AdminProtectedRoute path="/admin/reviews" component={ReviewsPage} />
+      <AdminProtectedRoute path="/admin/products" component={ProductsManagement} />
+      <AdminProtectedRoute path="/admin/orders" component={OrdersManagement} />
+      <AdminProtectedRoute path="/admin/customers" component={CustomersManagement} />
+      <AdminProtectedRoute path="/admin/categories" component={CategoriesManagement} />
+      <AdminProtectedRoute path="/admin/brands" component={BrandsManagement} />
+      
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
-export default function App() {
+function App() {
+  const [location] = useLocation();
+  
+  // Check if the current path is an admin route
+  const isAdminRoute = location.startsWith('/admin');
+  
   return (
-    <Router>
-      <Switch>
-        <Route path="*" component={NextJsRedirect} />
-      </Switch>
-    </Router>
+    <AuthProvider>
+      <AdminAuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <div className="flex flex-col min-h-screen">
+            {/* Only add header/footer for non-admin pages, as admin pages use AdminLayout */}
+            {!isAdminRoute && <Header />}
+            <main className={`flex-grow ${!isAdminRoute ? '' : 'w-full'}`}>
+              <Router />
+            </main>
+            {!isAdminRoute && <Footer />}
+          </div>
+        </TooltipProvider>
+      </AdminAuthProvider>
+    </AuthProvider>
   );
 }
+
+export default App;
