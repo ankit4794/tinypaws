@@ -12,6 +12,7 @@ import {
 import {
   User,
   Category,
+  Brand,
   Product,
   CartItem,
   WishlistItem,
@@ -68,6 +69,23 @@ export type CategoryDocument = mongoose.Document & {
   image?: string;
   isActive: boolean;
   type?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BrandDocument = mongoose.Document & {
+  name: string;
+  slug: string;
+  description?: string;
+  logo: string;
+  bannerImage?: string;
+  featured: boolean;
+  discount: {
+    type: 'flat' | 'percentage' | 'none';
+    value: number;
+    label?: string;
+  };
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
