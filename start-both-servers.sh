@@ -28,7 +28,7 @@ export PORT=3000
 export NEXT_TELEMETRY_DISABLED=1
 
 # Start Next.js with proper binding to 0.0.0.0
-NODE_OPTIONS="--experimental-json-modules" npx next dev -p 3000 -H 0.0.0.0 --config next.config.cjs &
+NODE_OPTIONS="--experimental-json-modules" npx next dev -p 3000 -H 0.0.0.0 &
 NEXT_PID=$!
 
 echo "Both servers started!"
