@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const { faker } = require('@faker-js/faker');
-require('dotenv').config();
+import mongoose from 'mongoose';
+import { faker } from '@faker-js/faker';
+import 'dotenv/config';
 
 // Set up mongoose connection
 mongoose.connect(process.env.MONGODB_URL)
@@ -11,7 +11,7 @@ mongoose.connect(process.env.MONGODB_URL)
   });
 
 // Import models
-const {
+import {
   User,
   Category,
   Brand,
@@ -20,7 +20,7 @@ const {
   Order,
   OrderItem,
   ServiceablePincode
-} = require('../models');
+} from '../models/index.js';
 
 // Generate random data for each model
 async function generateSampleData() {
