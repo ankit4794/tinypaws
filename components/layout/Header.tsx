@@ -1,30 +1,77 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "@/hooks/use-auth";
-import { useCart } from "@/hooks/use-cart";
-import { useCategories } from "@/hooks/use-categories";
-import LoginModal from "@/components/ui/LoginModal";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 
+interface Category {
+  _id: string;
+  name: string;
+  path: string;
+  subcategories: Category[];
+}
+
 const Header = () => {
-  const [location] = useLocation();
-  const { user, logoutMutation } = useAuth();
-  const { cartItems } = useCart();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [cartItems, setCartItems] = useState([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [pincode, setPincode] = useState("110001");
-  const { parentCategories, isLoading: categoriesLoading } = useCategories();
+  const [parentCategories, setParentCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setParentCategories(data.filter((cat: Category) => !cat.parentId));
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Fetch cart items on component mount
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      try {
+        const response = await fetch('/api/cart');
+        if (response.ok) {
+          const data = await response.json();
+          setCartItems(data);
+        }
+      } catch (error) {
+        console.error('Error fetching cart:', error);
+      }
+    };
+
+    fetchCartItems();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/products/search?q=${encodeURIComponent(searchQuery)}`;
+      router.push(`/products/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
-  const handleLogout = () => {
-    logoutMutation.mutate();
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (
@@ -82,12 +129,9 @@ const Header = () => {
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => setShowLoginModal(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded transition"
-            >
+            <Link href="/auth" className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded transition">
               Login/Sign Up
-            </button>
+            </Link>
           )}
           
           <Link href="/cart" className="relative">
@@ -117,11 +161,13 @@ const Header = () => {
                 // Render dynamic categories from database
                 parentCategories.map((category) => (
                   <li key={category._id} className="group relative py-4 px-2 hover:text-orange-500">
-                    <Link href={category.path} className="flex items-center">
-                      {category.name}
-                      {category.subcategories.length > 0 && (
-                        <i className="fas fa-chevron-down ml-1 text-xs"></i>
-                      )}
+                    <Link href={category.path}>
+                      <span className="flex items-center">
+                        {category.name}
+                        {category.subcategories.length > 0 && (
+                          <i className="fas fa-chevron-down ml-1 text-xs"></i>
+                        )}
+                      </span>
                     </Link>
                     {/* Dropdown for subcategories */}
                     {category.subcategories.length > 0 && (
@@ -129,11 +175,10 @@ const Header = () => {
                         <ul>
                           {category.subcategories.map((sub) => (
                             <li key={sub._id}>
-                              <Link 
-                                href={sub.path} 
-                                className="block px-4 py-2 hover:bg-gray-100"
-                              >
-                                {sub.name}
+                              <Link href={sub.path}>
+                                <span className="block px-4 py-2 hover:bg-gray-100">
+                                  {sub.name}
+                                </span>
                               </Link>
                             </li>
                           ))}
@@ -163,11 +208,6 @@ const Header = () => {
           )}
         </div>
       </nav>
-
-      {/* Login Modal */}
-      {showLoginModal && (
-        <LoginModal onClose={() => setShowLoginModal(false)} />
-      )}
     </header>
   );
 };

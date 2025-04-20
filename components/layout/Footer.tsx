@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import Link from "next/link";
 
 const Footer = () => {
   return (
@@ -37,11 +37,11 @@ const Footer = () => {
           <div>
             <h3 className="font-semibold text-lg mb-4">Quick Links</h3>
             <ul className="space-y-2">
-              <li><Link href="/about" className="text-gray-600 hover:text-black">About Us</Link></li>
-              <li><Link href="/contact" className="text-gray-600 hover:text-black">Contact Us</Link></li>
-              <li><Link href="/blogs" className="text-gray-600 hover:text-black">Blog</Link></li>
-              <li><Link href="/faqs" className="text-gray-600 hover:text-black">FAQs</Link></li>
-              <li><Link href="/store-locator" className="text-gray-600 hover:text-black">Store Locator</Link></li>
+              <li><Link href="/about"><span className="text-gray-600 hover:text-black">About Us</span></Link></li>
+              <li><Link href="/contact"><span className="text-gray-600 hover:text-black">Contact Us</span></Link></li>
+              <li><Link href="/blogs"><span className="text-gray-600 hover:text-black">Blog</span></Link></li>
+              <li><Link href="/faqs"><span className="text-gray-600 hover:text-black">FAQs</span></Link></li>
+              <li><Link href="/store-locator"><span className="text-gray-600 hover:text-black">Store Locator</span></Link></li>
             </ul>
           </div>
           
@@ -49,11 +49,11 @@ const Footer = () => {
           <div>
             <h3 className="font-semibold text-lg mb-4">Shop</h3>
             <ul className="space-y-2">
-              <li><Link href="/products/dogs" className="text-gray-600 hover:text-black">Dogs</Link></li>
-              <li><Link href="/products/cats" className="text-gray-600 hover:text-black">Cats</Link></li>
-              <li><Link href="/products/small-animals" className="text-gray-600 hover:text-black">Small Animals</Link></li>
-              <li><Link href="/products/best-sellers" className="text-gray-600 hover:text-black">Best Sellers</Link></li>
-              <li><Link href="/products/new-arrivals" className="text-gray-600 hover:text-black">New Arrivals</Link></li>
+              <li><Link href="/products/dogs"><span className="text-gray-600 hover:text-black">Dogs</span></Link></li>
+              <li><Link href="/products/cats"><span className="text-gray-600 hover:text-black">Cats</span></Link></li>
+              <li><Link href="/products/small-animals"><span className="text-gray-600 hover:text-black">Small Animals</span></Link></li>
+              <li><Link href="/products/best-sellers"><span className="text-gray-600 hover:text-black">Best Sellers</span></Link></li>
+              <li><Link href="/products/new-arrivals"><span className="text-gray-600 hover:text-black">New Arrivals</span></Link></li>
             </ul>
           </div>
           
@@ -61,12 +61,12 @@ const Footer = () => {
           <div>
             <h3 className="font-semibold text-lg mb-4">Help</h3>
             <ul className="space-y-2">
-              <li><Link href="/track-order" className="text-gray-600 hover:text-black">Track Your Order</Link></li>
-              <li><Link href="/shipping-policy" className="text-gray-600 hover:text-black">Shipping Policy</Link></li>
-              <li><Link href="/returns" className="text-gray-600 hover:text-black">Returns & Exchanges</Link></li>
-              <li><Link href="/payment-options" className="text-gray-600 hover:text-black">Payment Options</Link></li>
-              <li><Link href="/privacy-policy" className="text-gray-600 hover:text-black">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="text-gray-600 hover:text-black">Terms & Conditions</Link></li>
+              <li><Link href="/track-order"><span className="text-gray-600 hover:text-black">Track Your Order</span></Link></li>
+              <li><Link href="/shipping-policy"><span className="text-gray-600 hover:text-black">Shipping Policy</span></Link></li>
+              <li><Link href="/returns"><span className="text-gray-600 hover:text-black">Returns & Exchanges</span></Link></li>
+              <li><Link href="/payment-options"><span className="text-gray-600 hover:text-black">Payment Options</span></Link></li>
+              <li><Link href="/privacy-policy"><span className="text-gray-600 hover:text-black">Privacy Policy</span></Link></li>
+              <li><Link href="/terms"><span className="text-gray-600 hover:text-black">Terms & Conditions</span></Link></li>
             </ul>
           </div>
         </div>

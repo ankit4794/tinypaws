@@ -1,45 +1,36 @@
-import React, { ReactNode } from 'react';
-import { useRouter } from 'next/router';
+import { ReactNode } from 'react';
+import Head from 'next/head';
 import Header from './Header';
 import Footer from './Footer';
-import dynamic from 'next/dynamic';
 
-// Dynamically import the AdminLayout to avoid circular dependency issues
-const AdminLayout = dynamic(() => import('../admin/AdminLayout'), { 
-  loading: () => <div className="flex items-center justify-center min-h-screen">Loading admin layout...</div> 
-});
-
-// Import the unprotected version
-const UnprotectedAdminLayout = dynamic(() => import('../admin/AdminLayout').then(mod => mod.UnprotectedAdminLayout), { 
-  loading: () => <div className="flex items-center justify-center min-h-screen">Loading admin layout...</div> 
-});
-
-type LayoutProps = {
+interface LayoutProps {
   children: ReactNode;
-};
+  title?: string;
+  description?: string;
+}
 
-const Layout = ({ children }: LayoutProps) => {
-  const router = useRouter();
-  const isAdminRoute = router.pathname.startsWith('/admin');
-  
-  // Don't apply admin layout to the admin login page
-  const isAdminLoginPage = router.pathname === '/admin/login';
-  
-  if (isAdminRoute) {
-    if (isAdminLoginPage) {
-      return <UnprotectedAdminLayout>{children}</UnprotectedAdminLayout>;
-    }
-    return <AdminLayout>{children}</AdminLayout>;
-  }
-  
+const Layout = ({ children, title = 'TinyPaws - Pet Store', description = 'Premium pet products for your furry friends' }: LayoutProps) => {
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-grow">
-        {children}
-      </main>
-      <Footer />
-    </div>
+    <>
+      <Head>
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+        />
+      </Head>
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow">{children}</main>
+        <Footer />
+      </div>
+    </>
   );
 };
 

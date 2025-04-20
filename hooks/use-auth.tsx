@@ -1,7 +1,7 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { useToast } from "@/hooks/use-toast";
+import { createContext, ReactNode, useState, useContext, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
+// Define user type
 type User = {
   _id: string;
   email: string;
@@ -10,6 +10,7 @@ type User = {
   role: string;
 };
 
+// Define auth context type
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
@@ -19,11 +20,13 @@ type AuthContextType = {
   logout: () => Promise<void>;
 };
 
+// Define login credentials type
 type LoginCredentials = {
   email: string;
   password: string;
 };
 
+// Define register data type
 type RegisterData = {
   email: string;
   password: string;
@@ -31,72 +34,67 @@ type RegisterData = {
   mobile?: string;
 };
 
+// Create auth context
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+// Auth provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const router = useRouter();
-  const { toast } = useToast();
 
-  // Fetch the user when the component mounts
+  // Check if user is authenticated on initial load
   useEffect(() => {
-    const fetchUser = async () => {
+    async function loadUserFromSession() {
       try {
+        setIsLoading(true);
         const response = await fetch('/api/auth/user');
         
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
         } else {
-          // If 401 or other error, user is not authenticated
+          // Handle 401 or other errors silently during initial load
           setUser(null);
         }
       } catch (err) {
-        console.error("Error fetching user:", err);
-        setError(err instanceof Error ? err : new Error("Failed to fetch user"));
+        console.error('Error loading user session:', err);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
-    };
+    }
 
-    fetchUser();
+    loadUserFromSession();
   }, []);
 
   // Login function
   const login = async (credentials: LoginCredentials) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify(credentials)
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Login failed');
+        throw new Error(errorData.error || 'Failed to login');
       }
-
+      
       const userData = await response.json();
       setUser(userData);
-      toast({
-        title: "Login successful",
-        description: "Welcome back to TinyPaws!",
-      });
+      
+      // Redirect to home page after successful login
+      router.push('/');
     } catch (err) {
-      console.error("Login error:", err);
-      setError(err instanceof Error ? err : new Error("Login failed"));
-      toast({
-        title: "Login failed",
-        description: err instanceof Error ? err.message : "Something went wrong",
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -105,37 +103,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Register function
   const register = async (userData: RegisterData) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(userData)
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Registration failed');
+        throw new Error(errorData.error || 'Failed to register');
       }
-
-      const newUser = await response.json();
-      setUser(newUser);
-      toast({
-        title: "Registration successful",
-        description: "Welcome to TinyPaws!",
-      });
+      
+      const registeredUser = await response.json();
+      setUser(registeredUser);
+      
+      // Redirect to home page after successful registration
+      router.push('/');
     } catch (err) {
-      console.error("Registration error:", err);
-      setError(err instanceof Error ? err : new Error("Registration failed"));
-      toast({
-        title: "Registration failed",
-        description: err instanceof Error ? err.message : "Something went wrong",
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -144,34 +135,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Logout function
   const logout = async () => {
-    setIsLoading(true);
-    
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Logout failed');
+        throw new Error(errorData.error || 'Failed to logout');
       }
-
-      setUser(null);
-      // Optional: Redirect to login page
-      router.push('/auth');
       
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
-      });
+      setUser(null);
+      
+      // Redirect to home page after successful logout
+      router.push('/');
     } catch (err) {
-      console.error("Logout error:", err);
-      setError(err instanceof Error ? err : new Error("Logout failed"));
-      toast({
-        title: "Logout failed",
-        description: err instanceof Error ? err.message : "Something went wrong",
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -193,10 +179,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Custom hook to use auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
