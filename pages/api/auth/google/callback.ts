@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        code: code as string,
+        code: Array.isArray(code) ? code[0] : code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
         redirect_uri: REDIRECT_URI,
@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
+      const errorData = await tokenResponse.text();
       console.error('Error exchanging code for token:', errorData);
       return res.status(400).json({ message: 'Failed to authenticate with Google' });
     }
@@ -53,16 +53,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Get user profile
     const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     if (!profileResponse.ok) {
-      const errorData = await profileResponse.json();
+      const errorData = await profileResponse.text();
       console.error('Error fetching Google profile:', errorData);
       return res.status(400).json({ message: 'Failed to fetch Google profile' });
     }
 
     const profile = await profileResponse.json();
+
+    // Verify email exists
+    if (!profile.email) {
+      return res.status(400).json({ message: 'Email permission is required' });
+    }
 
     // Initialize storage if needed
     if (!storageProvider.instance) {

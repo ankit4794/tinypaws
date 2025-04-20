@@ -1,7 +1,4 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { storageProvider } from '@/server/index';
-import { UserRole } from '@/shared/next-schema';
-import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 
 // Google OAuth client
@@ -30,6 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     authUrl.searchParams.append('response_type', 'code');
     authUrl.searchParams.append('scope', 'email profile');
     authUrl.searchParams.append('state', state);
+    authUrl.searchParams.append('access_type', 'offline');
+    authUrl.searchParams.append('prompt', 'consent');
     
     // Redirect user to Google
     res.redirect(authUrl.toString());
