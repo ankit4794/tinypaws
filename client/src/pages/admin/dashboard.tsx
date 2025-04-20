@@ -7,6 +7,7 @@ import { useAdminDashboard } from '@/hooks/admin/use-admin-dashboard';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Widget } from '@shared/schema';
+import { AdminLayout } from '@/components/admin/layout';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -64,76 +65,80 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[500px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-[500px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <Button variant="outline" disabled={isUpdating}>
-          {isUpdating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            'Edit Widgets'
-          )}
-        </Button>
-      </div>
-
-      {dashboardConfig?.widgets && dashboardConfig.widgets.length > 0 ? (
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={getLayouts()}
-          breakpoints={{ lg: 1200, md: 768, sm: 480 }}
-          cols={{ lg: 12, md: 6, sm: 6 }}
-          rowHeight={120}
-          onLayoutChange={onLayoutChange}
-          isDraggable={!isUpdating}
-          isResizable={!isUpdating}
-          margin={[16, 16]}
-        >
-          {dashboardConfig.widgets
-            .filter(widget => widget.isVisible)
-            .map(widget => (
-              <div key={widget.id}>
-                <DashboardWidget 
-                  widget={widget} 
-                  onToggleVisibility={toggleWidgetVisibility} 
-                />
-              </div>
-            ))}
-        </ResponsiveGridLayout>
-      ) : (
-        <div className="text-center py-12 border rounded-lg">
-          <p className="text-muted-foreground">No widgets found or all widgets are hidden.</p>
-          <Button className="mt-4" variant="outline">
-            Reset to Default Layout
+    <AdminLayout>
+      <div className="p-4 md:p-6">
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <Button variant="outline" disabled={isUpdating}>
+            {isUpdating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Edit Widgets'
+            )}
           </Button>
         </div>
-      )}
 
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">Hidden Widgets</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dashboardConfig?.widgets
-            .filter(widget => !widget.isVisible)
-            .map(widget => (
-              <div key={widget.id} className="opacity-60 hover:opacity-100 transition-opacity">
-                <DashboardWidget 
-                  widget={widget} 
-                  onToggleVisibility={toggleWidgetVisibility} 
-                />
-              </div>
-            ))}
+        {dashboardConfig?.widgets && dashboardConfig.widgets.length > 0 ? (
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={getLayouts()}
+            breakpoints={{ lg: 1200, md: 768, sm: 480 }}
+            cols={{ lg: 12, md: 6, sm: 6 }}
+            rowHeight={120}
+            onLayoutChange={onLayoutChange}
+            isDraggable={!isUpdating}
+            isResizable={!isUpdating}
+            margin={[16, 16]}
+          >
+            {dashboardConfig.widgets
+              .filter(widget => widget.isVisible)
+              .map(widget => (
+                <div key={widget.id}>
+                  <DashboardWidget 
+                    widget={widget} 
+                    onToggleVisibility={toggleWidgetVisibility} 
+                  />
+                </div>
+              ))}
+          </ResponsiveGridLayout>
+        ) : (
+          <div className="text-center py-12 border rounded-lg">
+            <p className="text-muted-foreground">No widgets found or all widgets are hidden.</p>
+            <Button className="mt-4" variant="outline">
+              Reset to Default Layout
+            </Button>
+          </div>
+        )}
+
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold mb-4">Hidden Widgets</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {dashboardConfig?.widgets
+              .filter(widget => !widget.isVisible)
+              .map(widget => (
+                <div key={widget.id} className="opacity-60 hover:opacity-100 transition-opacity">
+                  <DashboardWidget 
+                    widget={widget} 
+                    onToggleVisibility={toggleWidgetVisibility} 
+                  />
+                </div>
+              ))}
+          </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 };
 
