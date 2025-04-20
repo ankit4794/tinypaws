@@ -19,8 +19,13 @@ export function useCategories() {
     queryKey: ["/api/categories"],
   });
   
+  const categories = data || [];
+  
+  const parentCategories = categories.filter(category => !category.parentId);
+  
   return {
-    categories: data || [],
+    categories,
+    parentCategories,
     isLoading,
     error
   };

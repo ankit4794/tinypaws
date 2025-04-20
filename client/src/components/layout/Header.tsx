@@ -117,17 +117,17 @@ const Header = () => {
                 // Render dynamic categories from database
                 parentCategories.map((category) => (
                   <li key={category._id} className="group relative py-4 px-2 hover:text-orange-500">
-                    <Link href={category.path} className="flex items-center">
+                    <Link href={`/products/${category.slug}`} className="flex items-center">
                       {category.name}
-                      {category.subcategories.length > 0 && (
+                      {category.subCategories && category.subCategories.length > 0 && (
                         <i className="fas fa-chevron-down ml-1 text-xs"></i>
                       )}
                     </Link>
                     {/* Dropdown for subcategories */}
-                    {category.subcategories.length > 0 && (
+                    {category.subCategories && category.subCategories.length > 0 && (
                       <div className="absolute hidden group-hover:block z-50 mt-4 w-48 bg-white border border-gray-200 shadow-lg">
                         <ul>
-                          {category.subcategories.map((sub) => (
+                          {category.subCategories.map((sub) => (
                             <li key={sub._id}>
                               <Link 
                                 href={sub.path} 

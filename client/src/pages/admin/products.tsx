@@ -428,11 +428,22 @@ export default function AdminProductsPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {categories.map((category) => (
-                                <SelectItem key={category._id} value={category._id}>
-                                  {category.name}
-                                </SelectItem>
-                              ))}
+                              {isLoadingCategories ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  Loading categories...
+                                </div>
+                              ) : categories && categories.length > 0 ? (
+                                categories.map((category) => (
+                                  <SelectItem key={category._id} value={category._id}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-center text-sm text-muted-foreground">
+                                  No categories found
+                                </div>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />

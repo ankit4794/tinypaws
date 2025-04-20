@@ -3,7 +3,7 @@ import { useCategories, getMainCategories, getCategoryPath } from "@/hooks/use-c
 import { Loader2 } from "lucide-react";
 
 const FeaturedCategories = () => {
-  const { data: categories, isLoading, error } = useCategories();
+  const { categories, isLoading, error } = useCategories();
   const mainCategories = getMainCategories(categories);
 
   if (isLoading) {
