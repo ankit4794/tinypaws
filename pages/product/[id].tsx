@@ -173,13 +173,13 @@ const ProductDetailPage = () => {
         <div className="flex text-sm text-gray-500 mb-6">
           <a href="/" className="hover:text-black">Home</a>
           <span className="mx-2">/</span>
-          <a href={`/products/${product.category}`} className="hover:text-black">
-            {product.category.charAt(0).toUpperCase() + product.category.slice(1)}
+          <a href={`/products/${product.category ? product.category : ''}`} className="hover:text-black">
+            {product.category ? product.category.charAt(0).toUpperCase() + product.category.slice(1) : 'All Categories'}
           </a>
           {product.subcategory && (
             <>
               <span className="mx-2">/</span>
-              <a href={`/products/${product.category}/${product.subcategory}`} className="hover:text-black">
+              <a href={`/products/${product.category ? product.category : ''}/${product.subcategory}`} className="hover:text-black">
                 {product.subcategory.charAt(0).toUpperCase() + product.subcategory.slice(1)}
               </a>
             </>
