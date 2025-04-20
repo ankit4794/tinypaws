@@ -17,6 +17,9 @@ import adminProductsRoutes from "./routes/admin/products";
 import adminDashboardRoutes from "./routes/admin/dashboard";
 import adminBrandsRoutes from "./routes/admin/brands";
 import adminAuthRoutes from "./routes/admin/auth";
+import adminOrdersRoutes from "./routes/admin/orders";
+import adminCustomersRoutes from "./routes/admin/customers";
+import adminHelpdeskRoutes from "./routes/admin/helpdesk";
 import pincodesRoutes from "./routes/pincodes";
 import uploadRoutes from "./routes/upload";
 
@@ -378,6 +381,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin/products", adminProductsRoutes);
   app.use("/api/admin/dashboard", adminDashboardRoutes);
   app.use("/api/admin/brands", adminBrandsRoutes);
+  app.use("/api/admin/orders", adminOrdersRoutes);
+  app.use("/api/admin/customers", adminCustomersRoutes);
+  app.use("/api/admin/helpdesk", adminHelpdeskRoutes);
+  
+  // Main admin auth routes
+  app.use("/api/admin/auth", adminAuthRoutes);
+  
+  // Additional legacy routes to maintain backward compatibility (frontend expects these paths)
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      // Use passport login instead of direct storage access
+      const { email, password } = req.body;
+      // Find admin user
+      const user = await storageProvider.instance.getUserByEmail(email);
+      
+      if (!user || user.role !== 'ADMIN') {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Authenticate with passport
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Admin login error:", err);
+          return res.status(500).json({ message: "Login error" });
+        }
+        res.status(200).json(user);
+      });
+    } catch (error) {
+      console.error("Admin login error:", error);
+      res.status(401).json({ message: "Invalid credentials" });
+    }
+  });
+  
+  app.post("/api/admin/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      res.status(200).json({ message: "Logged out successfully" });
+    });
+  });
+  
+  app.get("/api/admin/user", (req, res) => {
+    if (req.isAuthenticated() && req.user.role === 'ADMIN') {
+      res.json(req.user);
+    } else {
+      res.status(401).json({ message: "Not authenticated" });
+    }
+  });
   
   // Mount pincode routes
   app.use("/api/pincodes", pincodesRoutes);

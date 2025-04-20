@@ -32,10 +32,10 @@ router.post('/', withAdminAuth, async (req, res) => {
   try {
     const disclaimerData = insertDisclaimerSchema.parse(req.body);
     
-    const disclaimer = awaitstorageProvider.instance.createDisclaimer(disclaimerData);
+    const disclaimer = await storageProvider.instance.createDisclaimer(disclaimerData);
     
     // Log activity
-    awaitstorageProvider.instance.logActivity({
+    await storageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'create',
       resourceType: 'disclaimer',
@@ -60,7 +60,7 @@ router.post('/', withAdminAuth, async (req, res) => {
 // Get a specific disclaimer
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const disclaimer = awaitstorageProvider.instance.getDisclaimer(req.params.id);
+    const disclaimer = await storageProvider.instance.getDisclaimer(req.params.id);
     
     if (!disclaimer) {
       return res.status(404).json({ error: 'Disclaimer not found' });
@@ -77,7 +77,7 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 router.patch('/:id', withAdminAuth, async (req, res) => {
   try {
     const disclaimerId = req.params.id;
-    const existingDisclaimer = awaitstorageProvider.instance.getDisclaimer(disclaimerId);
+    const existingDisclaimer = await storageProvider.instance.getDisclaimer(disclaimerId);
     
     if (!existingDisclaimer) {
       return res.status(404).json({ error: 'Disclaimer not found' });
@@ -86,10 +86,10 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
     // Allow partial updates
     const updateData = req.body;
     
-    const disclaimer = awaitstorageProvider.instance.updateDisclaimer(disclaimerId, updateData);
+    const disclaimer = await storageProvider.instance.updateDisclaimer(disclaimerId, updateData);
     
     // Log activity
-    awaitstorageProvider.instance.logActivity({
+    await storageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'update',
       resourceType: 'disclaimer',
@@ -119,16 +119,16 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const disclaimerId = req.params.id;
-    const existingDisclaimer = awaitstorageProvider.instance.getDisclaimer(disclaimerId);
+    const existingDisclaimer = await storageProvider.instance.getDisclaimer(disclaimerId);
     
     if (!existingDisclaimer) {
       return res.status(404).json({ error: 'Disclaimer not found' });
     }
     
-    awaitstorageProvider.instance.deleteDisclaimer(disclaimerId);
+    await storageProvider.instance.deleteDisclaimer(disclaimerId);
     
     // Log activity
-    awaitstorageProvider.instance.logActivity({
+    await storageProvider.instance.logActivity({
       user: req.session.user.id,
       action: 'delete',
       resourceType: 'disclaimer',

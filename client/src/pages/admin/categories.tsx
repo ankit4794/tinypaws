@@ -39,7 +39,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { AdminLayout } from "@/components/admin/layout";
+import AdminLayout from "@/components/layout/AdminLayout";
 
 // Schema for category form
 const categorySchema = z.object({
@@ -271,7 +271,7 @@ export default function CategoriesManagement() {
 
   return (
     <AdminLayout>
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto p-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-2xl font-bold">Categories Management</CardTitle>

@@ -16,6 +16,8 @@ const userSchema = new Schema({
   },
   googleId: { type: String },
   facebookId: { type: String },
+  picture: { type: String },
+  isEmailVerified: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -143,6 +145,26 @@ const reviewSchema = new Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// HelpDesk Ticket Schema
+const helpDeskTicketSchema = new Schema({
+  user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  subject: { type: String, required: true },
+  message: { type: String, required: true },
+  status: { type: String, enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'], default: 'OPEN' },
+  priority: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'], default: 'MEDIUM' },
+  assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
+  orderRef: { type: Schema.Types.ObjectId, ref: 'Order' },
+  productRef: { type: Schema.Types.ObjectId, ref: 'Product' },
+  responses: [{
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    message: { type: String, required: true },
+    isStaff: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 // ContactSubmission Schema
 const contactSubmissionSchema = new Schema({
   name: { type: String, required: true },
@@ -227,6 +249,7 @@ export const WishlistItem = mongoose.models.WishlistItem || mongoose.model('Wish
 export const Order = mongoose.models.Order || mongoose.model('Order', orderSchema);
 export const OrderItem = mongoose.models.OrderItem || mongoose.model('OrderItem', orderItemSchema);
 export const Review = mongoose.models.Review || mongoose.model('Review', reviewSchema);
+export const HelpDeskTicket = mongoose.models.HelpDeskTicket || mongoose.model('HelpDeskTicket', helpDeskTicketSchema);
 export const ContactSubmission = mongoose.models.ContactSubmission || mongoose.model('ContactSubmission', contactSubmissionSchema);
 export const NewsletterSubscriber = mongoose.models.NewsletterSubscriber || mongoose.model('NewsletterSubscriber', newsletterSubscriberSchema);
 export const CmsPage = mongoose.models.CmsPage || mongoose.model('CmsPage', cmsPageSchema);

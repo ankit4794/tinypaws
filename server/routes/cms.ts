@@ -6,7 +6,7 @@ const router = Router();
 // Get a list of all published CMS pages (for sitemap, footer links, etc.)
 router.get('/', async (req, res) => {
   try {
-    const pages = awaitstorageProvider.instance.getPublicCmsPages();
+    const pages = await storageProvider.instance.getPublicCmsPages();
     res.json(pages);
   } catch (error) {
     console.error('Error fetching CMS pages:', error);
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 router.get('/:slug', async (req, res) => {
   try {
     const slug = req.params.slug;
-    const page = awaitstorageProvider.instance.getCmsPageBySlug(slug);
+    const page = await storageProvider.instance.getCmsPageBySlug(slug);
     
     if (!page || !page.isActive) {
       return res.status(404).json({ error: 'Page not found' });

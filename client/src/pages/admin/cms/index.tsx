@@ -133,7 +133,7 @@ export default function CmsPages() {
 
   return (
     <AdminLayout>
-      <div className="py-6">
+      <div className="container mx-auto p-4">
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold">CMS Pages</h1>

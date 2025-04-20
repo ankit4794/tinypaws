@@ -325,7 +325,7 @@ export default function AdminBrandsPage() {
 
   return (
     <AdminLayout>
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto p-4">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Brand Management</h1>
           <Button onClick={() => {

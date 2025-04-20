@@ -230,9 +230,9 @@ const TicketDetailPage = () => {
 
   return (
     <>
-      <Head>
+      <Helmet>
         <title>{`Ticket ${ticket.ticketId} - TinyPaws Admin`}</title>
-      </Head>
+      </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center">

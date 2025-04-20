@@ -37,6 +37,11 @@ export type UserDocument = mongoose.Document & {
   mobile?: string;
   address?: any;
   role: string;
+  // Social login fields
+  googleId?: string;
+  facebookId?: string;
+  picture?: string;
+  isEmailVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -218,6 +223,14 @@ export type PromotionDocument = mongoose.Document & {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+};
+
+// Promotion usage tracking interface
+export type PromotionUsage = {
+  userId: mongoose.Types.ObjectId;
+  promotionId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId;
+  usedAt: Date;
 };
 
 // Product filter options interface
@@ -1458,6 +1471,163 @@ export class MongoDBStorage implements IStorage {
     } catch (error) {
       console.error('Error toggling widget visibility:', error);
       return null;
+    }
+  }
+
+  // Promotion-related methods
+  async getPromotions(skip: number, limit: number, filters: Record<string, any> = {}): Promise<any[]> {
+    try {
+      // Build query from filters
+      const query = { ...filters };
+      
+      // Get promotions with pagination
+      const promotions = await Promotion.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      
+      return promotions;
+    } catch (error) {
+      console.error('Error fetching promotions:', error);
+      return [];
+    }
+  }
+
+  async getPromotionsCount(filters: Record<string, any> = {}): Promise<number> {
+    try {
+      // Build query from filters
+      const query = { ...filters };
+      
+      // Count total promotions with filters
+      const count = await Promotion.countDocuments(query);
+      
+      return count;
+    } catch (error) {
+      console.error('Error counting promotions:', error);
+      return 0;
+    }
+  }
+
+  async getPromotion(id: string): Promise<any | undefined> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      const promotion = await Promotion.findById(id).lean();
+      
+      return promotion || undefined;
+    } catch (error) {
+      console.error('Error fetching promotion by ID:', error);
+      return undefined;
+    }
+  }
+
+  async getPromotionByCode(code: string): Promise<any | undefined> {
+    try {
+      const promotion = await Promotion.findOne({ 
+        code: code.toUpperCase(),
+        isActive: true
+      }).lean();
+      
+      return promotion || undefined;
+    } catch (error) {
+      console.error('Error fetching promotion by code:', error);
+      return undefined;
+    }
+  }
+
+  async getActivePromotions(): Promise<any[]> {
+    try {
+      const now = new Date();
+      
+      // Find all active promotions that are within their date range
+      const promotions = await Promotion.find({
+        isActive: true,
+        startDate: { $lte: now },
+        endDate: { $gte: now }
+      }).lean();
+      
+      return promotions;
+    } catch (error) {
+      console.error('Error fetching active promotions:', error);
+      return [];
+    }
+  }
+
+  async createPromotion(promotionData: any): Promise<any> {
+    try {
+      // Ensure code is uppercase
+      if (promotionData.code) {
+        promotionData.code = promotionData.code.toUpperCase();
+      }
+      
+      const promotion = new Promotion(promotionData);
+      await promotion.save();
+      
+      return promotion.toObject();
+    } catch (error) {
+      console.error('Error creating promotion:', error);
+      throw error;
+    }
+  }
+
+  async updatePromotion(id: string, promotionData: any): Promise<any | undefined> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return undefined;
+      }
+      
+      // Ensure code is uppercase if provided
+      if (promotionData.code) {
+        promotionData.code = promotionData.code.toUpperCase();
+      }
+      
+      const promotion = await Promotion.findByIdAndUpdate(
+        id,
+        { $set: promotionData },
+        { new: true }
+      ).lean();
+      
+      return promotion || undefined;
+    } catch (error) {
+      console.error('Error updating promotion:', error);
+      return undefined;
+    }
+  }
+
+  async deletePromotion(id: string): Promise<boolean> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return false;
+      }
+      
+      const result = await Promotion.findByIdAndDelete(id);
+      
+      return !!result;
+    } catch (error) {
+      console.error('Error deleting promotion:', error);
+      return false;
+    }
+  }
+
+  async getUserPromotionUsageCount(userId: string, promotionId: string): Promise<number> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(promotionId)) {
+        return 0;
+      }
+      
+      // Find all orders where this user used this promotion
+      const orders = await Order.find({
+        user: userId,
+        'promotion.id': promotionId
+      }).countDocuments();
+      
+      return orders;
+    } catch (error) {
+      console.error('Error fetching user promotion usage count:', error);
+      return 0;
     }
   }
 }

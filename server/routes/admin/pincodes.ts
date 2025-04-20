@@ -1,26 +1,50 @@
-import { Router } from 'express';
-import { storage } from '../../storage';
-import { insertServiceablePincodeSchema } from '../../../shared/schema';
+import { Router, Request, Response } from 'express';
 import { withAdminAuth } from '../../../middleware/admin-auth';
+import { ServiceablePincode } from '../../models';
 
 const router = Router();
 
 // Get all pincodes (paginated)
-router.get('/', withAdminAuth, async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
-
+    const search = req.query.search as string;
+    
+    // Build query
+    const query: any = {};
+    
+    if (search) {
+      query.$or = [
+        { pincode: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+        { state: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Execute query with pagination
     const [pincodes, total] = await Promise.all([
-     storageProvider.instance.getPincodes(skip, limit),
-     storageProvider.instance.getPincodesCount(),
+      ServiceablePincode.find(query)
+        .sort({ pincode: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      ServiceablePincode.countDocuments(query)
     ]);
-
-    res.json({
+    
+    // Format response
+    const response = {
       pincodes,
-      total,
-    });
+      pagination: {
+        total,
+        page, 
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+    
+    res.json(response);
   } catch (error) {
     console.error('Error fetching pincodes:', error);
     res.status(500).json({ error: 'Failed to fetch pincodes' });
@@ -30,33 +54,36 @@ router.get('/', withAdminAuth, async (req, res) => {
 // Create a new pincode
 router.post('/', withAdminAuth, async (req, res) => {
   try {
-    const pincodeData = insertServiceablePincodeSchema.parse(req.body);
+    const pincodeData = req.body;
     
     // Check if pincode already exists
-    const existingPincode = awaitstorageProvider.instance.getPincodeByCode(pincodeData.pincode);
+    const existingPincode = await ServiceablePincode.findOne({ pincode: pincodeData.pincode });
     if (existingPincode) {
       return res.status(400).json({ error: 'Pincode already exists' });
     }
     
-    const pincode = awaitstorageProvider.instance.createPincode(pincodeData);
-    
-    // Log the activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'create',
-      resourceType: 'pincode',
-      resourceId: pincode.id,
-      details: { pincode: pincode.pincode },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+    // Create new ServiceablePincode document
+    const newPincode = new ServiceablePincode({
+      ...pincodeData,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
     
-    res.status(201).json(pincode);
+    // Save to database
+    const savedPincode = await newPincode.save();
+    
+    // Log activity
+    console.log(`Pincode created by admin`, {
+      adminId: req.session?.user?.id || 'unknown',
+      pincode: savedPincode.pincode
+    });
+    
+    res.status(201).json(savedPincode);
   } catch (error) {
     console.error('Error creating pincode:', error);
     
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors });
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ error: error.message });
     }
     
     res.status(500).json({ error: 'Failed to create pincode' });
@@ -66,7 +93,9 @@ router.post('/', withAdminAuth, async (req, res) => {
 // Get pincode by ID
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const pincode = awaitstorageProvider.instance.getPincode(req.params.id);
+    const pincodeId = req.params.id;
+    
+    const pincode = await ServiceablePincode.findById(pincodeId).lean();
     
     if (!pincode) {
       return res.status(404).json({ error: 'Pincode not found' });
@@ -83,37 +112,46 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 router.patch('/:id', withAdminAuth, async (req, res) => {
   try {
     const pincodeId = req.params.id;
-    const existingPincode = awaitstorageProvider.instance.getPincode(pincodeId);
+    
+    // Check if pincode exists
+    const existingPincode = await ServiceablePincode.findById(pincodeId);
     
     if (!existingPincode) {
       return res.status(404).json({ error: 'Pincode not found' });
     }
     
-    // Allow partial updates
     const updateData = req.body;
     
-    const pincode = awaitstorageProvider.instance.updatePincode(pincodeId, updateData);
+    // If pincode is being changed, check for duplicates
+    if (updateData.pincode && updateData.pincode !== existingPincode.pincode) {
+      const duplicate = await ServiceablePincode.findOne({ pincode: updateData.pincode });
+      if (duplicate && duplicate._id.toString() !== pincodeId) {
+        return res.status(400).json({ error: 'Pincode already exists' });
+      }
+    }
     
-    // Log the activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'update',
-      resourceType: 'pincode',
-      resourceId: pincode.id,
-      details: { 
-        pincode: pincode.pincode,
-        changes: updateData
-      },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+    // Add updated timestamp
+    updateData.updatedAt = new Date();
+    
+    // Update pincode in database
+    const updatedPincode = await ServiceablePincode.findByIdAndUpdate(
+      pincodeId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+    
+    // Log activity
+    console.log(`Pincode updated by admin`, {
+      adminId: req.session?.user?.id || 'unknown',
+      pincode: updatedPincode.pincode
     });
     
-    res.json(pincode);
+    res.json(updatedPincode);
   } catch (error) {
     console.error('Error updating pincode:', error);
     
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors });
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ error: error.message });
     }
     
     res.status(500).json({ error: 'Failed to update pincode' });
@@ -124,23 +162,21 @@ router.patch('/:id', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const pincodeId = req.params.id;
-    const existingPincode = awaitstorageProvider.instance.getPincode(pincodeId);
+    
+    // Check if pincode exists
+    const existingPincode = await ServiceablePincode.findById(pincodeId);
     
     if (!existingPincode) {
       return res.status(404).json({ error: 'Pincode not found' });
     }
     
-    awaitstorageProvider.instance.deletePincode(pincodeId);
+    // Delete from database
+    await ServiceablePincode.findByIdAndDelete(pincodeId);
     
-    // Log the activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'delete',
-      resourceType: 'pincode',
-      resourceId: pincodeId,
-      details: { pincode: existingPincode.pincode },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+    // Log activity
+    console.log(`Pincode deleted by admin`, {
+      adminId: req.session?.user?.id || 'unknown',
+      pincode: existingPincode.pincode
     });
     
     res.status(204).end();

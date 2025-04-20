@@ -6,7 +6,7 @@ const router = Router();
 // Get all active disclaimers
 router.get('/', async (req, res) => {
   try {
-    const disclaimers = awaitstorageProvider.instance.getActiveDisclaimers();
+    const disclaimers = await storageProvider.instance.getActiveDisclaimers();
     res.json(disclaimers);
   } catch (error) {
     console.error('Error fetching disclaimers:', error);
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 router.get('/type/:type', async (req, res) => {
   try {
     const type = req.params.type;
-    const disclaimers = awaitstorageProvider.instance.getDisclaimersByType(type);
+    const disclaimers = await storageProvider.instance.getDisclaimersByType(type);
     res.json(disclaimers);
   } catch (error) {
     console.error('Error fetching disclaimers by type:', error);

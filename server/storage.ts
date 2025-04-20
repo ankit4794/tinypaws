@@ -114,4 +114,15 @@ export interface IStorage {
   
   getContactSubmissions?: (resolved?: boolean) => Promise<ContactSubmission[]>;
   updateContactSubmissionStatus?: (id: string, isResolved: boolean) => Promise<ContactSubmission | undefined>;
+  
+  // Promotion-related methods
+  getPromotions: (skip: number, limit: number, filters?: Record<string, any>) => Promise<any[]>;
+  getPromotionsCount: (filters?: Record<string, any>) => Promise<number>;
+  getPromotion: (id: string) => Promise<any | undefined>;
+  getPromotionByCode: (code: string) => Promise<any | undefined>;
+  getActivePromotions: () => Promise<any[]>;
+  createPromotion: (promotionData: any) => Promise<any>;
+  updatePromotion: (id: string, promotionData: any) => Promise<any | undefined>;
+  deletePromotion: (id: string) => Promise<boolean>;
+  getUserPromotionUsageCount: (userId: string, promotionId: string) => Promise<number>;
 }

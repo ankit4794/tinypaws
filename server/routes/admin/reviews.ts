@@ -1,60 +1,51 @@
 import { Router } from 'express';
-import { storage } from '../../storage';
-import { insertAdminReplySchema } from '../../../shared/schema';
 import { withAdminAuth } from '../../../middleware/admin-auth';
+import { Review } from '../../models';
+import mongoose from 'mongoose';
 
 const router = Router();
 
-// Get all reviews (paginated with filters)
-router.get('/', withAdminAuth, async (req, res) => {
+// Get all reviews (paginated)
+router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
     
-    // Extract filters
-    const filters: Record<string, any> = {};
+    // Get product filters if any
+    const productId = req.query.product;
+    const statusFilter = req.query.status;
+    const ratingFilter = req.query.rating ? parseInt(req.query.rating as string) : null;
+
+    // Build filter object
+    const filter: any = {};
+    if (productId) filter.product = productId;
+    if (statusFilter) filter.status = statusFilter;
+    if (ratingFilter) filter.rating = ratingFilter;
+
+    // Count total documents with the filter
+    const total = await Review.countDocuments(filter);
     
-    if (req.query.productId) {
-      filters.product = req.query.productId;
-    }
+    // Get reviews with pagination
+    const reviews = await Review.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', 'fullName email username')
+      .populate('product', 'name slug images')
+      .lean();
     
-    if (req.query.rating) {
-      filters.rating = parseInt(req.query.rating as string);
-    }
+    const totalPages = Math.ceil(total / limit);
     
-    if (req.query.isApproved !== undefined) {
-      filters.isApproved = req.query.isApproved === 'true';
-    }
-    
-    if (req.query.status) {
-      filters.status = req.query.status;
-    }
-    
-    // Date range filters
-    if (req.query.startDate && req.query.endDate) {
-      filters.createdAt = {
-        $gte: new Date(req.query.startDate as string),
-        $lte: new Date(req.query.endDate as string),
-      };
-    } else if (req.query.startDate) {
-      filters.createdAt = {
-        $gte: new Date(req.query.startDate as string),
-      };
-    } else if (req.query.endDate) {
-      filters.createdAt = {
-        $lte: new Date(req.query.endDate as string),
-      };
-    }
-    
-    const [reviews, total] = await Promise.all([
-     storageProvider.instance.getReviews(skip, limit, filters),
-     storageProvider.instance.getReviewsCount(filters),
-    ]);
-    
+    // Return paginated results
     res.json({
       reviews,
-      total,
+      pagination: {
+        total,
+        page,
+        pageSize: limit,
+        totalPages
+      }
     });
   } catch (error) {
     console.error('Error fetching reviews:', error);
@@ -62,22 +53,20 @@ router.get('/', withAdminAuth, async (req, res) => {
   }
 });
 
-// Get review analytics (rating distribution, etc.)
-router.get('/analytics', withAdminAuth, async (req, res) => {
-  try {
-    const analytics = awaitstorageProvider.instance.getReviewsAnalytics();
-    res.json(analytics);
-  } catch (error) {
-    console.error('Error fetching review analytics:', error);
-    res.status(500).json({ error: 'Failed to fetch review analytics' });
-  }
-});
-
-// Get a specific review
+// Get a single review by ID
 router.get('/:id', withAdminAuth, async (req, res) => {
   try {
-    const review = awaitstorageProvider.instance.getReview(req.params.id);
+    const reviewId = req.params.id;
     
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+      return res.status(400).json({ error: 'Invalid review ID' });
+    }
+    
+    const review = await Review.findById(reviewId)
+      .populate('user', 'fullName email username')
+      .populate('product', 'name slug images')
+      .lean();
+      
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
@@ -90,35 +79,34 @@ router.get('/:id', withAdminAuth, async (req, res) => {
 });
 
 // Approve a review
-router.patch('/:id/approve', withAdminAuth, async (req, res) => {
+router.patch('/approve/:id', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = awaitstorageProvider.instance.getReview(reviewId);
+    
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+      return res.status(400).json({ error: 'Invalid review ID' });
+    }
+    
+    const review = await Review.findByIdAndUpdate(
+      reviewId,
+      { 
+        status: 'approved',
+        isApproved: true,
+        adminReply: req.body.adminReply ? {
+          text: req.body.adminReply,
+          date: new Date(),
+          adminUser: req.session.user.id
+        } : undefined
+      },
+      { new: true }
+    );
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
     
-    const updatedReview = awaitstorageProvider.instance.updateReview(reviewId, {
-      isApproved: true,
-      status: 'approved',
-    });
-    
-    // If this review is for a product, update the product's rating
-    awaitstorageProvider.instance.updateProductRating(review.product.toString());
-    
-    // Log activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'approve',
-      resourceType: 'review',
-      resourceId: reviewId,
-      details: { productId: review.product },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-    
-    res.json(updatedReview);
+    // Return updated review
+    res.json({ success: true, id: reviewId, status: 'approved', review });
   } catch (error) {
     console.error('Error approving review:', error);
     res.status(500).json({ error: 'Failed to approve review' });
@@ -126,79 +114,37 @@ router.patch('/:id/approve', withAdminAuth, async (req, res) => {
 });
 
 // Reject a review
-router.patch('/:id/reject', withAdminAuth, async (req, res) => {
+router.patch('/reject/:id', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = awaitstorageProvider.instance.getReview(reviewId);
+    
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+      return res.status(400).json({ error: 'Invalid review ID' });
+    }
+    
+    const review = await Review.findByIdAndUpdate(
+      reviewId,
+      { 
+        status: 'rejected',
+        isApproved: false,
+        adminReply: req.body.adminReply ? {
+          text: req.body.adminReply,
+          date: new Date(),
+          adminUser: req.session.user.id
+        } : undefined
+      },
+      { new: true }
+    );
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
     
-    const updatedReview = awaitstorageProvider.instance.updateReview(reviewId, {
-      isApproved: false,
-      status: 'rejected',
-    });
-    
-    // Log activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'reject',
-      resourceType: 'review',
-      resourceId: reviewId,
-      details: { productId: review.product },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-    
-    res.json(updatedReview);
+    // Return updated review
+    res.json({ success: true, id: reviewId, status: 'rejected', review });
   } catch (error) {
     console.error('Error rejecting review:', error);
     res.status(500).json({ error: 'Failed to reject review' });
-  }
-});
-
-// Reply to a review
-router.post('/:id/reply', withAdminAuth, async (req, res) => {
-  try {
-    const reviewId = req.params.id;
-    const review = awaitstorageProvider.instance.getReview(reviewId);
-    
-    if (!review) {
-      return res.status(404).json({ error: 'Review not found' });
-    }
-    
-    const replyData = insertAdminReplySchema.parse({
-      text: req.body.replyText,
-      adminUser: req.session.user.id,
-    });
-    
-    const updatedReview = awaitstorageProvider.instance.addReviewReply(reviewId, {
-      text: replyData.text,
-      date: new Date(),
-      adminUser: replyData.adminUser,
-    });
-    
-    // Log activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'reply',
-      resourceType: 'review',
-      resourceId: reviewId,
-      details: { productId: review.product },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-    
-    res.json(updatedReview);
-  } catch (error) {
-    console.error('Error replying to review:', error);
-    
-    if (error.name === 'ZodError') {
-      return res.status(400).json({ error: error.errors });
-    }
-    
-    res.status(500).json({ error: 'Failed to reply to review' });
   }
 });
 
@@ -206,30 +152,24 @@ router.post('/:id/reply', withAdminAuth, async (req, res) => {
 router.delete('/:id', withAdminAuth, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const review = awaitstorageProvider.instance.getReview(reviewId);
+    
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+      return res.status(400).json({ error: 'Invalid review ID' });
+    }
+    
+    const review = await Review.findById(reviewId);
     
     if (!review) {
       return res.status(404).json({ error: 'Review not found' });
     }
     
-    const productId = review.product.toString();
+    // Get the product to update its review count and rating
+    const product = await review.populate('product');
     
-    awaitstorageProvider.instance.deleteReview(reviewId);
+    // Delete the review
+    await Review.findByIdAndDelete(reviewId);
     
-    // Update the product's rating
-    awaitstorageProvider.instance.updateProductRating(productId);
-    
-    // Log activity
-    awaitstorageProvider.instance.logActivity({
-      user: req.session.user.id,
-      action: 'delete',
-      resourceType: 'review',
-      resourceId: reviewId,
-      details: { productId },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-    
+    // Return success
     res.status(204).end();
   } catch (error) {
     console.error('Error deleting review:', error);

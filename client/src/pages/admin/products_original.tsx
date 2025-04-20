@@ -54,7 +54,7 @@ import { Loader2, Trash2, Plus, Edit, Tag, PackageOpen } from "lucide-react";
 import { insertProductSchema, insertProductVariantSchema } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AdminLayout } from "@/components/admin/layout";
+import AdminLayout from "@/components/layout/AdminLayout";
 
 // Extend the product schema for form validation
 const productFormSchema = insertProductSchema

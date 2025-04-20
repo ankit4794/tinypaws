@@ -12,7 +12,7 @@ router.get('/check', async (req, res) => {
       return res.status(400).json({ error: 'Pincode is required' });
     }
     
-    const pincodeData = awaitstorageProvider.instance.getPincodeByCode(pincode);
+    const pincodeData = await storageProvider.instance.getPincodeByCode(pincode);
     
     if (!pincodeData) {
       return res.json({
@@ -46,7 +46,7 @@ router.get('/check', async (req, res) => {
 // Get all active pincodes for frontend use
 router.get('/', async (req, res) => {
   try {
-    const pincodes = awaitstorageProvider.instance.getActivePincodes();
+    const pincodes = await storageProvider.instance.getActivePincodes();
     
     res.json(pincodes);
   } catch (error) {

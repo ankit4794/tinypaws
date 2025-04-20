@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { AdminLayout } from "@/components/admin/layout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,16 +65,19 @@ export default function CustomersManagement() {
   
   // Fetch customers
   const { 
-    data: customers = [], 
+    data, 
     isLoading,
     error 
-  } = useQuery<Customer[]>({
+  } = useQuery<{ customers: Customer[], pagination: any }>({
     queryKey: ["/api/admin/customers"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/customers");
       return await res.json();
     },
   });
+  
+  // Extract the customers array from the response
+  const customers = data?.customers || [];
 
   // Mutation for adding a new customer
   const addCustomerMutation = useMutation({
@@ -133,7 +136,7 @@ export default function CustomersManagement() {
 
   return (
     <AdminLayout>
-      <div className="py-6">
+      <div className="container mx-auto p-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-2xl font-bold">Customers Management</CardTitle>

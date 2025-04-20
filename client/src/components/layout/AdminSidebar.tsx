@@ -12,7 +12,12 @@ import {
   FileText,
   Settings,
   Tag,
-  Bell
+  Bell,
+  Percent,
+  ShoppingCart,
+  Briefcase,
+  Ticket,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,11 +28,12 @@ const sidebarItems = [
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Categories', href: '/admin/categories', icon: FolderTree },
   { name: 'Brands', href: '/admin/brands', icon: Tag },
-  { name: 'Reviews', href: '/admin/reviews', icon: Star },
-  { name: 'Pincodes', href: '/admin/pincodes', icon: MapPin },
-  { name: 'Help Desk', href: '/admin/help-desk', icon: MessageSquare },
+  { name: 'Promotions', href: '/admin/promotions', icon: Percent },
   { name: 'CMS Pages', href: '/admin/cms', icon: FileText },
-  { name: 'Promotions', href: '/admin/promotions', icon: Bell },
+  { name: 'Helpdesk', href: '/admin/helpdesk', icon: MessageSquare },
+  { name: 'Newsletter', href: '/admin/newsletter', icon: Mail },
+  { name: 'Reviews', href: '/admin/reviews', icon: Star },
+  { name: 'Delivery Areas', href: '/admin/pincodes', icon: MapPin },
   { name: 'Settings', href: '/admin/settings', icon: Settings }
 ];
 

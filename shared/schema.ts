@@ -75,6 +75,11 @@ const userSchema = new mongoose.Schema({
   mobile: String,
   address: mongoose.Schema.Types.Mixed,
   role: { type: String, enum: Object.values(UserRole), default: UserRole.USER },
+  // Social login fields
+  googleId: { type: String, sparse: true },
+  facebookId: { type: String, sparse: true },
+  picture: String, // Profile picture URL from social providers
+  isEmailVerified: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // ==================== CATEGORY SCHEMA ====================

@@ -3,4 +3,6 @@
 
 import AdminLayout from '@/components/layout/AdminLayout';
 
+// Re-export as both named export and default export to satisfy all import styles
 export { AdminLayout };
+export default AdminLayout;

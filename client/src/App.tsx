@@ -24,9 +24,9 @@ import { AdminAuthProvider } from "@/hooks/use-admin-auth";
 import AdminLoginPage from "./pages/admin/login";
 import AdminDashboard from "./pages/admin/index";
 import AdminDashboardPage from "./pages/admin/dashboard";
-import HelpDeskPage from "./pages/admin/help-desk";
+import HelpdeskPage from "./pages/admin/helpdesk/index"; // Using folder-based implementation
 import PincodesPage from "./pages/admin/pincodes";
-import ReviewsPage from "./pages/admin/reviews";
+import ReviewsPage from "./pages/admin/reviews/index"; // Using folder-based implementation
 import ProductsManagement from "./pages/admin/products";
 import OrdersManagement from "./pages/admin/orders";
 import CustomersManagement from "./pages/admin/customers";
@@ -37,6 +37,10 @@ import CreateCmsPage from "./pages/admin/cms/create";
 import EditCmsPage from "./pages/admin/cms/edit/[id]";
 import NewsletterPage from "./pages/admin/newsletter";
 import ContactMessagesPage from "./pages/admin/contact-messages";
+import PromotionsPage from "./pages/admin/promotions";
+import SettingsPage from "./pages/admin/settings";
+import CreatePromotionPage from "./pages/admin/promotions/create";
+import EditPromotionPage from "./pages/admin/promotions/edit/[id]";
 
 function Router() {
   return (
@@ -56,9 +60,9 @@ function Router() {
       <Route path="/admin/login" component={AdminLoginPage} />
       <AdminProtectedRoute path="/admin" component={AdminDashboard} />
       <AdminProtectedRoute path="/admin/dashboard" component={AdminDashboardPage} />
-      <AdminProtectedRoute path="/admin/help-desk" component={HelpDeskPage} />
+      <AdminProtectedRoute path="/admin/helpdesk" component={HelpdeskPage} /> {/* Using folder-based implementation */}
       <AdminProtectedRoute path="/admin/pincodes" component={PincodesPage} />
-      <AdminProtectedRoute path="/admin/reviews" component={ReviewsPage} />
+      <AdminProtectedRoute path="/admin/reviews" component={ReviewsPage} /> {/* Using folder-based implementation */}
       <AdminProtectedRoute path="/admin/products" component={ProductsManagement} />
       <AdminProtectedRoute path="/admin/orders" component={OrdersManagement} />
       <AdminProtectedRoute path="/admin/customers" component={CustomersManagement} />
@@ -68,7 +72,11 @@ function Router() {
       <AdminProtectedRoute path="/admin/cms/create" component={CreateCmsPage} />
       <AdminProtectedRoute path="/admin/cms/edit/:id" component={EditCmsPage} />
       <AdminProtectedRoute path="/admin/newsletter" component={NewsletterPage} />
+      <AdminProtectedRoute path="/admin/settings" component={SettingsPage} />
       <AdminProtectedRoute path="/admin/contact-messages" component={ContactMessagesPage} />
+      <AdminProtectedRoute path="/admin/promotions" component={PromotionsPage} />
+      <AdminProtectedRoute path="/admin/promotions/create" component={CreatePromotionPage} />
+      <AdminProtectedRoute path="/admin/promotions/edit/:id" component={EditPromotionPage} />
       
       <Route component={NotFound} />
     </Switch>

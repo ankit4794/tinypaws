@@ -57,15 +57,17 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     error,
     isLoading,
   } = useQuery<AdminUser | null, Error>({
-    queryKey: ["/api/admin/user"],
+    queryKey: ["/api/admin/auth/user"],
     queryFn: async () => {
       try {
         // Try to get from server first
-        const res = await apiRequest("GET", "/api/admin/user");
-        if (res.status === 200) {
+        const res = await apiRequest("GET", "/api/admin/auth/user");
+        if (res.ok) {
           const data = await res.json();
+          console.log("Admin user data from API:", data);
           return data;
         } else {
+          console.log("Admin user not authenticated:", res.status);
           // If server says no, return null
           return null;
         }
@@ -100,14 +102,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const adminLoginMutation = useMutation({
     mutationFn: async (credentials: AdminLoginData) => {
-      const res = await apiRequest("POST", "/api/admin/login", credentials);
+      console.log("Admin login attempt with:", credentials.email);
+      const res = await apiRequest("POST", "/api/admin/auth/login", credentials);
       if (!res.ok) {
+        console.error("Login failed with status:", res.status);
         throw new Error("Invalid email or password");
       }
-      return await res.json();
+      const data = await res.json();
+      console.log("Login success response:", data);
+      return data;
     },
     onSuccess: (user: AdminUser) => {
-      queryClient.setQueryData(["/api/admin/user"], user);
+      console.log("Login mutation success, updating query data");
+      queryClient.setQueryData(["/api/admin/auth/user"], user);
       localStorage.setItem(LOCAL_STORAGE_ADMIN_KEY, JSON.stringify(user));
       setAdminUserState(user);
       hasUpdatedStorage.current = true;
@@ -127,10 +134,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const adminLogoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/admin/logout");
+      console.log("Logging out admin user");
+      await apiRequest("POST", "/api/admin/auth/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(["/api/admin/user"], null);
+      console.log("Logout successful, clearing user data");
+      queryClient.setQueryData(["/api/admin/auth/user"], null);
       localStorage.removeItem(LOCAL_STORAGE_ADMIN_KEY);
       setAdminUserState(null);
       hasUpdatedStorage.current = false;

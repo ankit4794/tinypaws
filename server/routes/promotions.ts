@@ -12,7 +12,7 @@ router.post('/validate', async (req, res) => {
       return res.status(400).json({ error: 'Promotion code is required' });
     }
     
-    const promotion = awaitstorageProvider.instance.getPromotionByCode(code);
+    const promotion = await storageProvider.instance.getPromotionByCode(code);
     
     // Check if promotion exists and is active
     if (!promotion || !promotion.isActive) {
@@ -35,7 +35,7 @@ router.post('/validate', async (req, res) => {
     // Check if user has already used this promotion (if authenticated)
     if (req.isAuthenticated() && promotion.perUserLimit > 0) {
       const userId = req.user.id;
-      const usageCount = awaitstorageProvider.instance.getUserPromotionUsageCount(userId, promotion.id);
+      const usageCount = await storageProvider.instance.getUserPromotionUsageCount(userId, promotion.id);
       
       if (usageCount >= promotion.perUserLimit) {
         return res.status(400).json({ 
@@ -75,7 +75,7 @@ router.post('/validate', async (req, res) => {
     else if (promotion.applicableCategories && promotion.applicableCategories.length > 0) {
       // Get product categories for items in cart
       const productIds = cartItems.map(item => item.productId);
-      const products = awaitstorageProvider.instance.getProductsByIds(productIds);
+      const products = await storageProvider.instance.getProductsByIds(productIds);
       
       // Filter cart items whose products belong to applicable categories
       applicableItems = cartItems.filter(item => {
@@ -135,7 +135,7 @@ router.post('/validate', async (req, res) => {
 // Get active promotions for display in the storefront
 router.get('/active', async (req, res) => {
   try {
-    const promotions = awaitstorageProvider.instance.getActivePromotions();
+    const promotions = await storageProvider.instance.getActivePromotions();
     
     // Don't send back sensitive data like usage limits
     const safePromotions = promotions.map(promo => ({

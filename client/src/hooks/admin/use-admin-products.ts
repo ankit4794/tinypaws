@@ -8,16 +8,19 @@ export function useAdminProducts() {
   
   // Get all products (admin view)
   const {
-    data: products = [],
+    data,
     isLoading: isLoadingProducts,
     error: productsError,
-  } = useQuery({
+  } = useQuery<{ products: Product[], pagination: any }>({
     queryKey: ['/api/admin/products'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/admin/products');
       return await res.json();
     },
   });
+  
+  // Extract products from the paginated response
+  const products = data?.products || [];
   
   // Get a single product by ID
   const getProduct = (id: string) => {
