@@ -3,8 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/hooks/use-auth';
+import { AdminAuthProvider } from '@/hooks/use-admin-auth';
 import { Toaster } from '@/components/ui/toaster';
-import '../client/src/index.css';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import '../styles/globals.css';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -14,8 +16,12 @@ export default function App({ Component, pageProps }: AppProps) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" attribute="class">
         <AuthProvider>
-          <Component {...pageProps} />
-          <Toaster />
+          <AdminAuthProvider>
+            <TooltipProvider>
+              <Component {...pageProps} />
+              <Toaster />
+            </TooltipProvider>
+          </AdminAuthProvider>
         </AuthProvider>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
