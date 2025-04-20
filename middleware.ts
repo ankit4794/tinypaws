@@ -1,5 +1,5 @@
 // Next.js Edge middleware (runs at the edge before your API routes)
-// This file is automatically run by Next.js when imported in the pages directory
+// This file is automatically run by Next.js when imported in the root directory
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
