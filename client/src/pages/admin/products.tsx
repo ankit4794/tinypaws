@@ -514,7 +514,7 @@ export default function AdminProductsPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">Not specified</SelectItem>
+                              <SelectItem value="none">Not specified</SelectItem>
                               <SelectItem value="puppy">Puppy</SelectItem>
                               <SelectItem value="adult">Adult</SelectItem>
                               <SelectItem value="senior">Senior</SelectItem>
@@ -914,7 +914,7 @@ export default function AdminProductsPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">Not specified</SelectItem>
+                                <SelectItem value="none">Not specified</SelectItem>
                                 <SelectItem value="puppy">Puppy</SelectItem>
                                 <SelectItem value="adult">Adult</SelectItem>
                                 <SelectItem value="senior">Senior</SelectItem>
