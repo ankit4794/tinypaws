@@ -2,15 +2,15 @@
   "workflows": [
     {
       "name": "Start application",
-      "command": "bash ./start-servers.sh"
-    },
-    {
-      "name": "Start Express API only",
-      "command": "npm run dev"
+      "command": "./start-both-servers.sh"
     },
     {
       "name": "Start Next.js only",
-      "command": "npx next dev"
+      "command": "npx next dev -p 3000 -H 0.0.0.0"
+    },
+    {
+      "name": "Start Express API only",
+      "command": "NODE_ENV=development tsx server/index.ts"
     }
   ]
 }
