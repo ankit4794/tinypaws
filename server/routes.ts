@@ -20,6 +20,8 @@ import adminAuthRoutes from "./routes/admin/auth";
 import adminOrdersRoutes from "./routes/admin/orders";
 import adminCustomersRoutes from "./routes/admin/customers";
 import adminHelpdeskRoutes from "./routes/admin/helpdesk";
+import helpdeskRoutes from "./routes/helpdesk";
+import newsletterRoutes from "./routes/newsletter";
 import pincodesRoutes from "./routes/pincodes";
 import uploadRoutes from "./routes/upload";
 
@@ -370,6 +372,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount promotion routes
   app.use("/api/promotions", promotionsRoutes);
   
+  // Mount helpdesk routes
+  app.use("/api/helpdesk", helpdeskRoutes);
+  
+  // Mount newsletter routes
+  app.use("/api/newsletter", newsletterRoutes);
+  
   // Mount admin routes
   app.use("/api/admin/auth", adminAuthRoutes);
   app.use("/api/admin/reviews", adminReviewsRoutes);
@@ -384,9 +392,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin/orders", adminOrdersRoutes);
   app.use("/api/admin/customers", adminCustomersRoutes);
   app.use("/api/admin/helpdesk", adminHelpdeskRoutes);
-  
-  // Main admin auth routes
-  app.use("/api/admin/auth", adminAuthRoutes);
   
   // Additional legacy routes to maintain backward compatibility (frontend expects these paths)
   app.post("/api/admin/login", async (req, res) => {

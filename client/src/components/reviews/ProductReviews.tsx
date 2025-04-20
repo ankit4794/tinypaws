@@ -384,7 +384,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
                         <SelectValue placeholder="All ratings" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All ratings</SelectItem>
+                        <SelectItem value="all">All ratings</SelectItem>
                         <SelectItem value="5">5 stars</SelectItem>
                         <SelectItem value="4">4 stars</SelectItem>
                         <SelectItem value="3">3 stars</SelectItem>

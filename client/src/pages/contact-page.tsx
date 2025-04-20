@@ -3,7 +3,10 @@ import { Helmet } from "react-helmet";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Loader2, Send, MessageSquare, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import {
   Form,
   FormControl,
@@ -24,6 +27,11 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { NewsletterSubscribeForm } from "@/components/newsletter/subscribe-form";
+import { CreateTicketForm } from "@/components/helpdesk/create-ticket-form";
+import { TicketList } from "@/components/helpdesk/ticket-list";
 
 const contactFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -42,7 +50,13 @@ type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 const ContactPage = () => {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  
+  // Check if user is authenticated
+  const { data: user, isLoading: authLoading } = useQuery({
+    queryKey: ["/api/user"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
 
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(contactFormSchema),
@@ -58,29 +72,39 @@ const ContactPage = () => {
     },
   });
 
-  const onSubmit = async (values: ContactFormValues) => {
-    setIsSubmitting(true);
-    
-    try {
-      // This would be an API call in production
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+  const mutation = useMutation({
+    mutationFn: async (data: ContactFormValues) => {
+      const response = await apiRequest('POST', '/api/helpdesk/contact', {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        subject: data.subject,
+        message: data.message,
+        contactMethod: data.preferredContact,
+        orderId: data.orderNumber || undefined,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
       toast({
         title: "Message Sent",
         description: "We've received your message and will get back to you soon!",
         variant: "default",
       });
-      
       form.reset();
-    } catch (error) {
+      setSubmitted(true);
+    },
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "There was a problem sending your message. Please try again.",
+        description: error.message || "There was a problem sending your message. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
-    }
+    },
+  });
+
+  const onSubmit = (values: ContactFormValues) => {
+    mutation.mutate(values);
   };
 
   return (
@@ -183,13 +207,20 @@ const ContactPage = () => {
             </div>
           </div>
           
-          {/* Contact Form */}
+          {/* Contact Form and Helpdesk */}
           <div className="lg:col-span-2">
             <div className="bg-white p-8 rounded-xl shadow-sm">
-              <h2 className="text-2xl font-bold mb-6">Send Us a Message</h2>
-              
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <Tabs defaultValue="contact" className="mb-6">
+                <TabsList className="grid grid-cols-2 mb-8">
+                  <TabsTrigger value="contact">Contact Form</TabsTrigger>
+                  <TabsTrigger value="helpdesk">Support Ticket</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="contact">
+                  <h2 className="text-2xl font-bold mb-6">Send Us a Message</h2>
+                  
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={form.control}
@@ -349,12 +380,74 @@ const ContactPage = () => {
                   <Button 
                     type="submit" 
                     className="w-full bg-black hover:bg-gray-800"
-                    disabled={isSubmitting}
+                    disabled={mutation.isPending}
                   >
-                    {isSubmitting ? "Sending..." : "Send Message"}
+                    {mutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send Message
+                      </>
+                    )}
                   </Button>
                 </form>
-              </Form>
+                  </Form>
+                </TabsContent>
+                
+                <TabsContent value="helpdesk">
+                  <div className="space-y-8">
+                    <div>
+                      <h2 className="text-2xl font-bold mb-6">Create Support Ticket</h2>
+                      <p className="text-gray-600 mb-4">
+                        Need help with something specific? Create a support ticket and our team will assist you as soon as possible.
+                      </p>
+                      <CreateTicketForm />
+                    </div>
+                    
+                    {/* Only show ticket list for authenticated users */}
+                    <div className="mt-8 pt-8 border-t">
+                      <h2 className="text-2xl font-bold mb-6">Your Tickets</h2>
+                      
+                      {user ? (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Recent Support Tickets</CardTitle>
+                            <CardDescription>
+                              View and manage your existing support requests.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <TicketList />
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Login Required</CardTitle>
+                            <CardDescription>
+                              Please log in to view and manage your support tickets.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="text-center py-8">
+                            <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <p className="text-gray-600 mb-4">You need to be logged in to view your support tickets.</p>
+                            <Button variant="outline" className="mt-2" asChild>
+                              <a href="/auth">
+                                <LogIn className="mr-2 h-4 w-4" />
+                                Login / Register
+                              </a>
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>
@@ -367,6 +460,17 @@ const ContactPage = () => {
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
               <p className="text-gray-600">Google Map would be integrated here</p>
             </div>
+          </div>
+        </div>
+
+        {/* Newsletter Section */}
+        <div className="mt-16 bg-gray-50 p-10 rounded-xl">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-2xl font-bold mb-3">Subscribe to Our Newsletter</h2>
+            <p className="text-gray-600 mb-6">
+              Stay updated with new pet products, care tips, and exclusive offers.
+            </p>
+            <NewsletterSubscribeForm variant="stacked" className="max-w-md mx-auto" />
           </div>
         </div>
 
