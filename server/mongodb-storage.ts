@@ -1181,4 +1181,122 @@ export class MongoDBStorage implements IStorage {
       return undefined;
     }
   }
+
+  // Dashboard configuration methods
+  async getDashboardConfig(userId: string): Promise<DashboardConfig | null> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return null;
+      }
+      
+      const dashboardConfig = await DashboardConfig.findOne({ userId }).lean();
+      return dashboardConfig;
+    } catch (error) {
+      console.error('Error fetching dashboard config:', error);
+      return null;
+    }
+  }
+
+  async createDashboardConfig(config: InsertDashboardConfig): Promise<DashboardConfig> {
+    try {
+      const dashboardConfig = new DashboardConfig({
+        ...config,
+        lastModified: new Date()
+      });
+      await dashboardConfig.save();
+      return dashboardConfig.toObject();
+    } catch (error) {
+      console.error('Error creating dashboard config:', error);
+      throw error;
+    }
+  }
+
+  async updateDashboardConfig(userId: string, config: Partial<DashboardConfig>): Promise<DashboardConfig | null> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return null;
+      }
+      
+      const dashboardConfig = await DashboardConfig.findOneAndUpdate(
+        { userId },
+        { 
+          $set: {
+            ...config,
+            lastModified: new Date()
+          } 
+        },
+        { new: true, upsert: true }
+      ).lean();
+      
+      return dashboardConfig;
+    } catch (error) {
+      console.error('Error updating dashboard config:', error);
+      return null;
+    }
+  }
+
+  async updateWidgetPositions(userId: string, widgets: { id: string, position: { x: number, y: number, w: number, h: number } }[]): Promise<DashboardConfig | null> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return null;
+      }
+      
+      // Get the dashboard config
+      const dashboardConfig = await DashboardConfig.findOne({ userId });
+      
+      if (!dashboardConfig) {
+        return null;
+      }
+      
+      // Update each widget position
+      for (const updateData of widgets) {
+        const widgetIndex = dashboardConfig.widgets.findIndex(w => w.id === updateData.id);
+        
+        if (widgetIndex !== -1) {
+          dashboardConfig.widgets[widgetIndex].position = updateData.position;
+        }
+      }
+      
+      // Save the updated config
+      dashboardConfig.lastModified = new Date();
+      await dashboardConfig.save();
+      
+      return dashboardConfig.toObject();
+    } catch (error) {
+      console.error('Error updating widget positions:', error);
+      return null;
+    }
+  }
+
+  async toggleWidgetVisibility(userId: string, widgetId: string, isVisible: boolean): Promise<DashboardConfig | null> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return null;
+      }
+      
+      // Get the dashboard config
+      const dashboardConfig = await DashboardConfig.findOne({ userId });
+      
+      if (!dashboardConfig) {
+        return null;
+      }
+      
+      // Find the widget
+      const widgetIndex = dashboardConfig.widgets.findIndex(w => w.id === widgetId);
+      
+      if (widgetIndex !== -1) {
+        // Update visibility
+        dashboardConfig.widgets[widgetIndex].isVisible = isVisible;
+        
+        // Save the updated config
+        dashboardConfig.lastModified = new Date();
+        await dashboardConfig.save();
+      }
+      
+      return dashboardConfig.toObject();
+    } catch (error) {
+      console.error('Error toggling widget visibility:', error);
+      return null;
+    }
+  }
 }

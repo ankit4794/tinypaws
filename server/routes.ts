@@ -14,6 +14,7 @@ import adminDisclaimersRoutes from "./routes/admin/disclaimers";
 import adminPromotionsRoutes from "./routes/admin/promotions";
 import adminCategoriesRoutes from "./routes/admin/categories";
 import adminProductsRoutes from "./routes/admin/products";
+import adminDashboardRoutes from "./routes/admin/dashboard";
 import pincodesRoutes from "./routes/pincodes";
 import uploadRoutes from "./routes/upload";
 
@@ -307,6 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin/promotions", adminPromotionsRoutes);
   app.use("/api/admin/categories", adminCategoriesRoutes);
   app.use("/api/admin/products", adminProductsRoutes);
+  app.use("/api/admin/dashboard", adminDashboardRoutes);
   
   // Mount pincode routes
   app.use("/api/pincodes", pincodesRoutes);
