@@ -61,12 +61,35 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user: SelectUser, done) => done(null, user.id));
+  passport.serializeUser((user: any, done) => {
+    try {
+      // For MongoDB user objects, safely extract only the necessary data for session
+      const userData = typeof user.toObject === 'function' 
+        ? user.toObject() 
+        : user;
+      
+      // Strip down the user to only essential properties to avoid circular references
+      const safeUser = {
+        id: userData._id || userData.id,
+        username: userData.username || userData.email,
+        email: userData.email,
+        role: userData.role,
+      };
+      
+      done(null, safeUser.id);
+    } catch (error) {
+      done(error);
+    }
+  });
   
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storageProvider.instance.getUser(id);
-      done(null, user);
+      // Convert MongoDB document to plain object if method exists
+      const userData = user && typeof user.toObject === 'function' 
+        ? user.toObject() 
+        : user;
+      done(null, userData);
     } catch (error) {
       done(error);
     }

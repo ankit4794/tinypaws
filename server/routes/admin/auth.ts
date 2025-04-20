@@ -43,20 +43,28 @@ router.post('/login', async (req: Request, res: Response) => {
     
     console.log(`Password valid for: ${email}, attempting to login with Passport`);
     
+    // Convert mongoose document to a plain object before login
+    const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
+    
+    // Create a simplified user object to avoid serialization issues
+    const safeUser = {
+      id: userObj._id || userObj.id,
+      _id: userObj._id || userObj.id, // Include both formats for compatibility
+      email: userObj.email,
+      username: userObj.username || userObj.email,
+      fullName: userObj.fullName,
+      role: userObj.role
+    };
+    
     // Login the user using Passport
-    req.login(user, (err) => {
+    req.login(safeUser, (err) => {
       if (err) {
         console.error(`Login error in req.login: ${err.message}`);
         return res.status(500).json({ error: `Login failed: ${err.message}` });
       }
       
-      // Return user info without sensitive data
-      const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
-      
-      // Remove password from response
-      const { password, ...userWithoutPassword } = userObj;
       console.log(`Admin login successful for: ${email}`);
-      res.status(200).json(userWithoutPassword);
+      res.status(200).json(safeUser);
     });
   } catch (error) {
     console.error('Admin login error:', error);

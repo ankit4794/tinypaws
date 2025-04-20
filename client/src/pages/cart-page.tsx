@@ -172,7 +172,7 @@ const CartPage = () => {
                         <TableCell>
                           <div className="w-20 h-20 rounded-md overflow-hidden">
                             <img 
-                              src={item.images[0]} 
+                              src={item.images && item.images.length > 0 ? item.images[0] : '/assets/placeholder-product.png'} 
                               alt={item.name}
                               className="w-full h-full object-cover" 
                             />
