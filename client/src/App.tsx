@@ -35,6 +35,8 @@ import BrandsManagement from "./pages/admin/brands";
 import CmsPages from "./pages/admin/cms";
 import CreateCmsPage from "./pages/admin/cms/create";
 import EditCmsPage from "./pages/admin/cms/edit/[id]";
+import NewsletterPage from "./pages/admin/newsletter";
+import ContactMessagesPage from "./pages/admin/contact-messages";
 
 function Router() {
   return (
@@ -65,6 +67,8 @@ function Router() {
       <AdminProtectedRoute path="/admin/cms" component={CmsPages} />
       <AdminProtectedRoute path="/admin/cms/create" component={CreateCmsPage} />
       <AdminProtectedRoute path="/admin/cms/edit/:id" component={EditCmsPage} />
+      <AdminProtectedRoute path="/admin/newsletter" component={NewsletterPage} />
+      <AdminProtectedRoute path="/admin/contact-messages" component={ContactMessagesPage} />
       
       <Route component={NotFound} />
     </Switch>
