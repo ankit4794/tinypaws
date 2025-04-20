@@ -115,7 +115,7 @@ const Header = () => {
             <ul className="flex flex-wrap justify-center md:justify-start space-x-0 md:space-x-8">
               {parentCategories && parentCategories.length > 0 ? (
                 // Render dynamic categories from database
-                parentCategories.map((category, index) => (
+                parentCategories.map((category) => (
                   <li key={category._id} className="group relative py-4 px-2 hover:text-orange-500">
                     <Link href={category.path} className="flex items-center">
                       {category.name}

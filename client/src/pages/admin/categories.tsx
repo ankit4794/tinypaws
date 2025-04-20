@@ -108,7 +108,9 @@ export default function CategoriesManagement() {
       });
       setSelectedCategory(null);
       setIsEditMode(false);
+      // Invalidate both admin categories and frontend categories
       queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
     },
     onError: (error) => {
       toast({
@@ -122,15 +124,18 @@ export default function CategoriesManagement() {
   // Delete category mutation
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("DELETE", `/api/admin/categories/${id}`);
-      return await res.json();
+      await apiRequest("DELETE", `/api/admin/categories/${id}`);
+      // Our API returns 204 No Content for successful deletion
+      return { success: true };
     },
     onSuccess: () => {
       toast({
         title: "Success",
         description: "Category deleted successfully",
       });
+      // Invalidate both admin categories and frontend categories
       queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
     },
     onError: (error) => {
       toast({
