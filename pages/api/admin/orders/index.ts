@@ -1,58 +1,93 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { storage } from '@/server/storage';
-import { withAdminAuth } from '@/middleware/admin-auth';
+import dbConnect from '@/lib/db-connect';
+import { Order } from '@/models';
+import { isAdmin } from '@/middleware/auth';
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // GET - Get all orders with pagination and filtering
-  if (req.method === 'GET') {
-    try {
-      // Check if getAllOrders method exists in the storage implementation
-      if (!storage.getAllOrders) {
-        return res.status(501).json({ message: 'getAllOrders method not implemented in the storage' });
-      }
-      
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const status = req.query.status as string || '';
-      
-      // Get all orders
-      let orders = await storage.getAllOrders();
-      
-      // Apply status filter if provided
-      if (status) {
-        orders = orders.filter(order => order.status === status);
-      }
-      
-      // Sort orders by createdAt date (newest first)
-      orders = orders.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      
-      // Calculate pagination
-      const totalItems = orders.length;
-      const totalPages = Math.ceil(totalItems / limit);
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      
-      // Get paginated orders
-      const paginatedOrders = orders.slice(startIndex, endIndex);
-      
-      return res.status(200).json({
-        orders: paginatedOrders,
-        totalPages,
-        currentPage: page,
-        totalItems
-      });
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      return res.status(500).json({ message: 'Failed to fetch orders' });
-    }
-  }
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  await dbConnect();
   
-  // Method not allowed
-  else {
-    return res.status(405).json({ message: 'Method not allowed' });
+  // Ensure the requester is an admin
+  await isAdmin(req, res);
+  
+  try {
+    switch (req.method) {
+      case 'GET':
+        // Query parameters for filtering
+        const { 
+          status, 
+          from, 
+          to, 
+          search, 
+          sort = 'createdAt', 
+          order = 'desc',
+          limit = 100,
+          page = 1
+        } = req.query;
+        
+        // Build query
+        let query: any = {};
+        
+        // Filter by status
+        if (status && status !== 'all') {
+          query.status = status;
+        }
+        
+        // Filter by date range
+        if (from || to) {
+          query.createdAt = {};
+          if (from) query.createdAt.$gte = new Date(from as string);
+          if (to) {
+            const toDate = new Date(to as string);
+            toDate.setHours(23, 59, 59, 999); // End of day
+            query.createdAt.$lte = toDate;
+          }
+        }
+        
+        // Search by order number, email, phone, or name
+        if (search) {
+          const searchRegex = new RegExp(search as string, 'i');
+          query.$or = [
+            { orderNumber: searchRegex },
+            { email: searchRegex },
+            { mobile: searchRegex },
+            { fullName: searchRegex }
+          ];
+        }
+        
+        // Calculate skip for pagination
+        const skip = (Number(page) - 1) * Number(limit);
+        
+        // Get orders with pagination
+        const orders = await Order.find(query)
+          .sort({ [sort as string]: order === 'desc' ? -1 : 1 })
+          .skip(skip)
+          .limit(Number(limit))
+          .populate({
+            path: 'items',
+            populate: {
+              path: 'productId',
+              select: 'name slug image'
+            }
+          });
+        
+        // Get total count for pagination
+        const total = await Order.countDocuments(query);
+        
+        return res.status(200).json({
+          orders,
+          pagination: {
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            pages: Math.ceil(total / Number(limit))
+          }
+        });
+        
+      default:
+        return res.status(405).json({ message: 'Method not allowed' });
+    }
+  } catch (error) {
+    console.error('Admin orders API error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 }
-
-export default withAdminAuth(handler);

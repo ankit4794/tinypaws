@@ -1,93 +1,76 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { storage } from '@/server/storage';
-import { withAdminAuth } from '@/middleware/admin-auth';
+import dbConnect from '@/lib/db-connect';
+import { Order } from '@/models';
+import { isAdmin } from '@/middleware/auth';
+import mongoose from 'mongoose';
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  await dbConnect();
+  
+  // Ensure the requester is an admin
+  await isAdmin(req, res);
+  
   const { id } = req.query;
-
-  if (!id || typeof id !== 'string') {
-    return res.status(400).json({ message: 'Missing or invalid order ID' });
+  
+  // Validate the ID
+  if (!id || !mongoose.Types.ObjectId.isValid(id as string)) {
+    return res.status(400).json({ message: 'Invalid order ID' });
   }
-
-  // GET - Get a single order with detailed information
-  if (req.method === 'GET') {
-    try {
-      // Since we need a detailed view, we use storage methods differently
-      // First get all orders to find the one we need
-      if (!storage.getAllOrders) {
-        return res.status(501).json({ message: 'getAllOrders method not implemented in the storage' });
-      }
-      
-      const allOrders = await storage.getAllOrders();
-      const order = allOrders.find(o => o.id.toString() === id);
-      
-      if (!order) {
-        return res.status(404).json({ message: 'Order not found' });
-      }
-      
-      // Get the user information
-      const user = await storage.getUser(order.userId);
-      
-      // Get order items if possible
-      // For simplicity, we'll use the order's items if they exist
-      let orderWithItems = order;
-      if (storage.getOrderDetails) {
-        // Use the storage's getOrderDetails method if available
-        const orderDetails = await storage.getOrderDetails(order.userId, id);
-        if (orderDetails) {
-          orderWithItems = orderDetails;
+  
+  try {
+    // Find the order
+    const order = await Order.findById(id)
+      .populate({
+        path: 'items',
+        populate: {
+          path: 'productId',
+          select: 'name slug image'
         }
-      }
-      
-      // Combine data for a detailed response
-      const response = {
-        ...orderWithItems,
-        user: user ? {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.fullName
-        } : null
-      };
-      
-      return res.status(200).json(response);
-    } catch (error) {
-      console.error(`Error fetching order with ID ${id}:`, error);
-      return res.status(500).json({ message: 'Failed to fetch order' });
+      });
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
-  }
-  
-  // PUT - Update order status
-  else if (req.method === 'PUT') {
-    try {
-      if (!storage.updateOrderStatus) {
-        return res.status(501).json({ message: 'updateOrderStatus method not implemented in the storage' });
-      }
-      
-      const { status } = req.body;
-      
-      if (!status) {
-        return res.status(400).json({ message: 'Status is required' });
-      }
-      
-      // Update the order status
-      const updatedOrder = await storage.updateOrderStatus(id, status);
-      
-      if (!updatedOrder) {
-        return res.status(404).json({ message: 'Order not found' });
-      }
-      
-      return res.status(200).json(updatedOrder);
-    } catch (error) {
-      console.error(`Error updating order with ID ${id}:`, error);
-      return res.status(500).json({ message: 'Failed to update order' });
+    
+    switch (req.method) {
+      case 'GET':
+        // Return the order
+        return res.status(200).json(order);
+        
+      case 'PATCH':
+        // Update order details
+        const {
+          status,
+          trackingNumber,
+          courier,
+          notes,
+          paymentStatus
+        } = req.body;
+        
+        // Update fields if provided
+        if (status) order.status = status;
+        if (trackingNumber) order.trackingNumber = trackingNumber;
+        if (courier) order.courier = courier;
+        if (notes !== undefined) order.notes = notes;
+        if (paymentStatus) order.paymentStatus = paymentStatus;
+        
+        await order.save();
+        
+        return res.status(200).json({
+          message: 'Order updated successfully',
+          order
+        });
+        
+      case 'DELETE':
+        // Delete order (rarely used, usually we keep records)
+        await Order.findByIdAndDelete(id);
+        return res.status(200).json({ message: 'Order deleted successfully' });
+        
+      default:
+        return res.status(405).json({ message: 'Method not allowed' });
     }
-  }
-  
-  // Method not allowed
-  else {
-    return res.status(405).json({ message: 'Method not allowed' });
+  } catch (error) {
+    console.error('Admin order API error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 }
-
-export default withAdminAuth(handler);
