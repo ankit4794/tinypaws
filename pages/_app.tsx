@@ -1,38 +1,28 @@
-import * as React from 'react';
-import { AppProps } from 'next/app';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { ThemeProvider } from 'next-themes';
+import type { AppProps } from 'next/app';
 import { AuthProvider } from '@/hooks/use-auth';
-import { AdminAuthProvider } from '@/hooks/use-admin-auth';
-import { CartProvider } from '@/hooks/use-cart';
-import { WishlistProvider } from '@/hooks/use-wishlist';
 import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { queryClient } from '@/lib/queryClient';
-import Layout from '@/components/layout/Layout';
-import '../styles/globals.css';
+import '@/styles/globals.css';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 export default function App({ Component, pageProps }: AppProps) {
+  // Check if the current path is an admin route
+  const isAdminRoute = 
+    typeof window !== 'undefined' ? 
+      window.location.pathname.startsWith('/admin') : 
+      false;
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" attribute="class">
-        <AuthProvider>
-          <AdminAuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <TooltipProvider>
-                  <Layout>
-                    <Component {...pageProps} />
-                  </Layout>
-                  <Toaster />
-                </TooltipProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </AdminAuthProvider>
-        </AuthProvider>
-      </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    <AuthProvider>
+      <div className="flex flex-col min-h-screen">
+        {/* Only add header/footer for non-admin pages */}
+        {!isAdminRoute && <Header />}
+        <main className="flex-grow">
+          <Component {...pageProps} />
+        </main>
+        {!isAdminRoute && <Footer />}
+      </div>
+      <Toaster />
+    </AuthProvider>
   );
 }

@@ -1,68 +1,17 @@
-import type { NextFetchEvent, NextRequest, NextResponse } from 'next/server';
-import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
-import session from 'express-session';
-import { User } from '@/models';
-import { connectToDatabase } from '@/lib/db-connect';
-import { promisify } from 'util';
-import { scrypt, timingSafeEqual } from 'crypto';
+// Next.js Edge middleware (runs at the edge before your API routes)
+// This file is automatically run by Next.js when imported in the pages directory
 
-// Passport Configurations
-passport.serializeUser((user, done) => {
-  // @ts-ignore - Mongoose document has _id
-  done(null, user._id);
-});
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-passport.deserializeUser(async (id, done) => {
-  try {
-    await connectToDatabase();
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (error) {
-    done(error, null);
-  }
-});
-
-const scryptAsync = promisify(scrypt);
-
-async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split('.');
-  const hashedBuf = Buffer.from(hashed, 'hex');
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
-}
-
-// Local strategy setup
-passport.use(
-  new LocalStrategy(
-    {
-      usernameField: 'email',
-      passwordField: 'password',
-    },
-    async (email, password, done) => {
-      try {
-        await connectToDatabase();
-        const user = await User.findOne({ email });
-        
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false, { message: 'Invalid email or password' });
-        }
-        
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    }
-  )
-);
-
-// Export a middleware that will run for each API route
-export default function middleware(req: NextRequest, ev: NextFetchEvent) {
-  // This middleware only applies to API routes
-  if (!req.nextUrl.pathname.startsWith('/api/')) {
-    return;
-  }
-
-  // The middleware runs before each API route but doesn't modify the request or response
+// This middleware will be applied to all API routes
+export function middleware(request: NextRequest) {
+  // You can modify the request headers or response here if needed
+  // For now, we're just letting all requests through to our API handlers
   return NextResponse.next();
 }
+
+// Only apply to API routes
+export const config = {
+  matcher: '/api/:path*',
+};

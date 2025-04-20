@@ -1,11 +1,9 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URL!;
+const MONGODB_URI = process.env.MONGODB_URL || '';
 
 if (!MONGODB_URI) {
-  throw new Error(
-    'Please define the MONGODB_URI environment variable inside .env'
-  );
+  throw new Error('Please define the MONGODB_URL environment variable');
 }
 
 /**
@@ -19,7 +17,7 @@ if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
-async function dbConnect() {
+export async function connectToDatabase() {
   if (cached.conn) {
     return cached.conn;
   }
@@ -29,19 +27,28 @@ async function dbConnect() {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts)
-      .then((mongoose) => {
-        console.log('✅ MongoDB connected successfully');
-        return mongoose;
-      })
-      .catch((error) => {
-        console.error('❌ MongoDB connection error:', error);
-        throw error;
-      });
+    mongoose.set('strictQuery', false);
+
+    console.log(`Attempting connection to MongoDB...`);
+    const mongoURI = MONGODB_URI;
+    // Hide sensitive parts in logs
+    const hiddenURI = mongoURI.replace(/:([^:@]+)@/, ':***@');
+    console.log(`MongoDB URI (sensitive parts hidden): ${hiddenURI}`);
+
+    cached.promise = mongoose.connect(mongoURI, opts).then((mongoose) => {
+      console.log('✅ MongoDB connected successfully');
+      return mongoose;
+    });
+  }
+  
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
   }
 
-  cached.conn = await cached.promise;
   return cached.conn;
 }
 
-export default dbConnect;
+export default connectToDatabase;

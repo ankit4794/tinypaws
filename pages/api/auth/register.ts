@@ -1,17 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { scrypt, randomBytes } from 'crypto';
-import { promisify } from 'util';
 import { connectToDatabase } from '@/lib/db-connect';
 import { User } from '@/models';
-
-const scryptAsync = promisify(scrypt);
-
-// Hash password using scrypt
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString('hex');
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString('hex')}.${salt}`;
-}
+import { hashPassword } from '@/lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -20,7 +10,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { email, password, fullName, mobile } = req.body;
 
-  // Validate required fields
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
@@ -31,42 +20,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Check if user with this email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(409).json({ error: 'Email already in use' });
     }
 
-    // Hash the password
+    // Create new user
     const hashedPassword = await hashPassword(password);
-
-    // Create a new user
-    const newUser = new User({
+    const user = new User({
       email,
+      username: email.split('@')[0],
       password: hashedPassword,
-      fullName: fullName || null,
-      mobile: mobile || null,
-      role: 'customer', // default role for new registrations
-      createdAt: new Date(),
-      updatedAt: new Date()
+      fullName,
+      mobile,
+      role: 'user',
     });
 
-    await newUser.save();
+    await user.save();
 
-    // Start session for the new user
-    return new Promise<void>((resolve) => {
-      req.login(newUser, (loginErr) => {
-        if (loginErr) {
-          console.error('Session error:', loginErr);
-          res.status(500).json({ error: 'Failed to create session' });
-          return resolve();
+    // Set the user in the session
+    // @ts-ignore - req.login is provided by passport
+    if (req.login) {
+      req.login(user, (err: Error) => {
+        if (err) {
+          console.error('Registration login error:', err);
+          return res.status(500).json({ error: 'Registration succeeded but failed to login' });
         }
-        
-        // Convert Mongoose document to plain object and remove sensitive fields
-        const userData = newUser.toObject();
+
+        // Convert to plain object and remove sensitive data
+        const userData = user.toObject();
         delete userData.password;
-        
+
         res.status(201).json(userData);
-        return resolve();
       });
-    });
+    } else {
+      // Convert to plain object and remove sensitive data
+      const userData = user.toObject();
+      delete userData.password;
+
+      // Use session manually if req.login is not available
+      // @ts-ignore - session is available
+      if (req.session) {
+        // @ts-ignore - session is available
+        req.session.passport = { user: user._id };
+        // @ts-ignore - session is available
+        await new Promise<void>((resolve) => req.session.save(() => resolve()));
+      }
+
+      res.status(201).json(userData);
+    }
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
