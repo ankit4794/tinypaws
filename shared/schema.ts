@@ -283,25 +283,39 @@ const userSessionSchema = new mongoose.Schema({
 
 // ==================== EXPORT MODELS ====================
 // Using conditional model creation to avoid 'model overwrite error' during hot reloading
-export const User = mongoose.models.User || mongoose.model('User', userSchema);
-export const Category = mongoose.models.Category || mongoose.model('Category', categorySchema);
-export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
-export const CartItem = mongoose.models.CartItem || mongoose.model('CartItem', cartItemSchema);
-export const WishlistItem = mongoose.models.WishlistItem || mongoose.model('WishlistItem', wishlistItemSchema);
-export const Order = mongoose.models.Order || mongoose.model('Order', orderSchema);
-export const OrderItem = mongoose.models.OrderItem || mongoose.model('OrderItem', orderItemSchema);
-export const Review = mongoose.models.Review || mongoose.model('Review', reviewSchema);
-export const ContactSubmission = mongoose.models.ContactSubmission || mongoose.model('ContactSubmission', contactSubmissionSchema);
-export const NewsletterSubscriber = mongoose.models.NewsletterSubscriber || mongoose.model('NewsletterSubscriber', newsletterSubscriberSchema);
-export const HelpDeskTicket = mongoose.models.HelpDeskTicket || mongoose.model('HelpDeskTicket', helpDeskTicketSchema);
-export const TicketResponse = mongoose.models.TicketResponse || mongoose.model('TicketResponse', ticketResponseSchema);
-export const CmsPage = mongoose.models.CmsPage || mongoose.model('CmsPage', cmsPageSchema);
-export const ServiceablePincode = mongoose.models.ServiceablePincode || mongoose.model('ServiceablePincode', serviceablePincodeSchema);
-export const Disclaimer = mongoose.models.Disclaimer || mongoose.model('Disclaimer', disclaimerSchema);
-export const Promotion = mongoose.models.Promotion || mongoose.model('Promotion', promotionSchema);
-export const ActivityLog = mongoose.models.ActivityLog || mongoose.model('ActivityLog', activityLogSchema);
-export const RolePermission = mongoose.models.RolePermission || mongoose.model('RolePermission', rolePermissionSchema);
-export const UserSession = mongoose.models.UserSession || mongoose.model('UserSession', userSessionSchema);
+// These model exports are for use on the server side only
+// On the client side, the types are used for type checking but not for DB operations
+// The conditional check helps prevent errors in the client-side bundle
+let User, Category, Product, CartItem, WishlistItem, Order, OrderItem, Review;
+let ContactSubmission, NewsletterSubscriber, HelpDeskTicket, TicketResponse;
+let CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession;
+
+// Only create models on the server side where mongoose is fully initialized
+if (typeof window === 'undefined') {
+  User = mongoose.models.User || mongoose.model('User', userSchema);
+  Category = mongoose.models.Category || mongoose.model('Category', categorySchema);
+  Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+  CartItem = mongoose.models.CartItem || mongoose.model('CartItem', cartItemSchema);
+  WishlistItem = mongoose.models.WishlistItem || mongoose.model('WishlistItem', wishlistItemSchema);
+  Order = mongoose.models.Order || mongoose.model('Order', orderSchema);
+  OrderItem = mongoose.models.OrderItem || mongoose.model('OrderItem', orderItemSchema);
+  Review = mongoose.models.Review || mongoose.model('Review', reviewSchema);
+  ContactSubmission = mongoose.models.ContactSubmission || mongoose.model('ContactSubmission', contactSubmissionSchema);
+  NewsletterSubscriber = mongoose.models.NewsletterSubscriber || mongoose.model('NewsletterSubscriber', newsletterSubscriberSchema);
+  HelpDeskTicket = mongoose.models.HelpDeskTicket || mongoose.model('HelpDeskTicket', helpDeskTicketSchema);
+  TicketResponse = mongoose.models.TicketResponse || mongoose.model('TicketResponse', ticketResponseSchema);
+  CmsPage = mongoose.models.CmsPage || mongoose.model('CmsPage', cmsPageSchema);
+  ServiceablePincode = mongoose.models.ServiceablePincode || mongoose.model('ServiceablePincode', serviceablePincodeSchema);
+  Disclaimer = mongoose.models.Disclaimer || mongoose.model('Disclaimer', disclaimerSchema);
+  Promotion = mongoose.models.Promotion || mongoose.model('Promotion', promotionSchema);
+  ActivityLog = mongoose.models.ActivityLog || mongoose.model('ActivityLog', activityLogSchema);
+  RolePermission = mongoose.models.RolePermission || mongoose.model('RolePermission', rolePermissionSchema);
+  UserSession = mongoose.models.UserSession || mongoose.model('UserSession', userSessionSchema);
+}
+
+export { User, Category, Product, CartItem, WishlistItem, Order, OrderItem, Review,
+  ContactSubmission, NewsletterSubscriber, HelpDeskTicket, TicketResponse,
+  CmsPage, ServiceablePincode, Disclaimer, Promotion, ActivityLog, RolePermission, UserSession };
 
 // ==================== EXPORT ZOD SCHEMAS ====================
 // User Schema
