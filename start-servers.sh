@@ -1,24 +1,25 @@
 #!/bin/bash
 
-# Kill any existing processes on port 5000
+# Alternative way to kill processes without lsof
 echo "Stopping any existing servers..."
-kill $(lsof -t -i:5000) 2>/dev/null || true
+pkill -f "tsx server/index.ts" 2>/dev/null || true
+pkill -f "next dev" 2>/dev/null || true
 
 # Small delay to ensure ports are released
-sleep 2
+sleep 3
+
+# Start the Next.js development server first (on port 3000)
+echo "Starting Next.js server..."
+npx next dev -p 3000 &
+NEXT_PID=$!
+
+# Small delay before starting Express
+sleep 3
 
 # Start the Express API server
 echo "Starting Express API server..."
 NODE_ENV=development tsx server/index.ts &
 EXPRESS_PID=$!
-
-# Small delay to ensure Express server is up
-sleep 2
-
-# Start the Next.js development server
-echo "Starting Next.js server..."
-npx next dev -p 3000 &
-NEXT_PID=$!
 
 echo "Both servers started!"
 echo "Express API: http://localhost:5000"
