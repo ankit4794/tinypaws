@@ -410,7 +410,7 @@ async function generateBrands() {
 async function generateProducts() {
   const productCount = await Product.countDocuments();
   
-  if (productCount > 20) {
+  if (productCount > 0) {
     console.log('Products already exist, skipping...');
     return;
   }
@@ -883,7 +883,41 @@ async function generateOrders() {
       // Generate a random order number
       const orderNumber = `TP${faker.string.numeric(10)}`;
       
-      // Create a new order
+      // Generate random order items (1-4 products per order)
+      const numItems = faker.number.int({ min: 1, max: 4 });
+      const selectedProducts = faker.helpers.arrayElements(products, numItems);
+      
+      let subtotal = 0;
+      const orderItemsList = [];
+      
+      for (const product of selectedProducts) {
+        const quantity = faker.number.int({ min: 1, max: 3 });
+        const price = product.salePrice || product.price;
+        
+        // Get a random variant if available
+        let variant = null;
+        if (product.variants && product.variants.length > 0) {
+          variant = faker.helpers.arrayElement(product.variants);
+        }
+        
+        const itemPrice = variant ? variant.salePrice || variant.price : price;
+        subtotal += itemPrice * quantity;
+        
+        // Add to order items list for later creation
+        orderItemsList.push({
+          productId: product._id,
+          quantity,
+          price: itemPrice,
+          weight: variant ? variant.name : null
+        });
+      }
+      
+      // Calculate order totals
+      const tax = subtotal * 0.18; // 18% GST
+      const deliveryCharge = faker.helpers.arrayElement([50, 70, 100]);
+      const total = subtotal + tax + deliveryCharge;
+      
+      // Create a new order with all required fields
       const order = new Order({
         orderNumber,
         userId: customer._id,
@@ -896,58 +930,39 @@ async function generateOrders() {
         pincode: customer.address.pincode,
         status,
         paymentMethod,
+        subtotal,
+        tax,
+        deliveryCharge,
+        total,
+        items: [],
         createdAt: orderDate,
         updatedAt: orderDate
       });
-      
-      await order.save();
-      orders.push(order);
-      
-      // Generate random order items (1-4 products per order)
-      const numItems = faker.number.int({ min: 1, max: 4 });
-      const selectedProducts = faker.helpers.arrayElements(products, numItems);
-      
-      let subtotal = 0;
-      
-      for (const product of selectedProducts) {
-        const quantity = faker.number.int({ min: 1, max: 3 });
-        const price = product.salePrice || product.price;
-        
-        // Get a random variant if available
-        let variant = null;
-        if (product.variants && product.variants.length > 0) {
-          variant = faker.helpers.arrayElement(product.variants);
-        }
-        
-        const orderItem = new OrderItem({
-          orderId: order._id,
-          productId: product._id,
-          quantity,
-          price: variant ? variant.salePrice || variant.price : price,
-          weight: variant ? variant.name : null
-        });
-        
-        await orderItem.save();
-        orderItems.push(orderItem);
-        
-        subtotal += orderItem.price * quantity;
-      }
-      
-      // Update order with totals
-      const tax = subtotal * 0.18; // 18% GST
-      const deliveryCharge = faker.helpers.arrayElement([50, 70, 100]);
-      const total = subtotal + tax + deliveryCharge;
-      
-      order.subtotal = subtotal;
-      order.tax = tax;
-      order.deliveryCharge = deliveryCharge;
-      order.total = total;
-      order.items = orderItems.filter(item => item.orderId.toString() === order._id.toString());
       
       // Add tracking info for shipped and delivered orders
       if (status === 'shipped' || status === 'delivered') {
         order.trackingNumber = `TRK${faker.string.numeric(8)}`;
         order.courier = faker.helpers.arrayElement(['BlueDart', 'Delhivery', 'DTDC', 'FedEx']);
+      }
+      
+      await order.save();
+      orders.push(order);
+      
+      // Create order items now that we have an order ID
+      for (const item of orderItemsList) {
+        const orderItem = new OrderItem({
+          orderId: order._id,
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          weight: item.weight
+        });
+        
+        await orderItem.save();
+        orderItems.push(orderItem);
+        
+        // Add order item to order
+        order.items.push(orderItem._id);
       }
       
       await order.save();
