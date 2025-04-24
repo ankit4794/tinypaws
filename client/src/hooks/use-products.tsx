@@ -88,3 +88,20 @@ export function useProduct(id: string | number): UseQueryResult<Product> {
     enabled: !!id // Only run the query if id is provided
   });
 }
+
+export function useProductBySlug(slug: string): UseQueryResult<Product> {
+  console.log(slug, "slug")
+  const queryKey = [`/api/products/slug/${slug}`];
+  
+  return useQuery<Product>({
+    queryKey,
+    queryFn: getQueryFn({ on401: "throw" }),
+    onSuccess: (data: Product) => {
+      // Store the product in localStorage when data is fetched
+      if (data && data._id) {
+        localStorage.setItem(`${LOCAL_STORAGE_PRODUCT_KEY_PREFIX}${data._id}`, JSON.stringify(data));
+      }
+    },
+    enabled: !!slug // Only run the query if slug is provided
+  });
+}

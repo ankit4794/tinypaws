@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -51,6 +51,7 @@ const categorySchema = z.object({
   image: z.string().optional(),
   isActive: z.boolean().default(true),
   type: z.string().optional(),
+  forPet: z.string().optional(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -68,7 +69,9 @@ export default function CategoriesManagement() {
     queryKey: ["/api/admin/categories"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/categories");
-      return await res.json();
+      const data = await res.json();
+      console.log("Categories data from API:", data);
+      return data;
     },
   });
 
@@ -160,6 +163,7 @@ export default function CategoriesManagement() {
       image: "",
       isActive: true,
       type: "",
+      forPet: "",
     },
   });
 
@@ -173,6 +177,7 @@ export default function CategoriesManagement() {
       image: "",
       isActive: true,
       type: "none",
+      forPet: "all",
     });
     setIsAddDialogOpen(true);
     setIsEditMode(false);
@@ -188,6 +193,7 @@ export default function CategoriesManagement() {
       image: category.image || "",
       isActive: category.isActive,
       type: category.type || "none",
+      forPet: category.forPet || "all",
     });
     setSelectedCategory(category);
     setIsEditMode(true);
@@ -195,11 +201,12 @@ export default function CategoriesManagement() {
 
   // Handle form submission
   const onSubmit = (data: CategoryFormValues) => {
-    // Convert "none" to empty string/null for parentId and type
+    // Convert "none" to null for parentId and type
     const processedData = {
       ...data,
-      parentId: data.parentId === "none" ? "" : data.parentId,
-      type: data.type === "none" ? "" : data.type
+      parentId: data.parentId === "none" ? null : data.parentId,
+      type: data.type === "none" ? null : data.type,
+      forPet: data.forPet || "all"
     };
     
     if (isEditMode && selectedCategory) {
@@ -246,16 +253,22 @@ export default function CategoriesManagement() {
     );
   };
 
-  // Get parent categories (top-level categories with no parent)
-  const parentCategories = categories 
-    ? categories.filter(c => !c.parentId)
-    : [];
-
+  // First, group all categories by parent/child relationship
+  // Get all categories, then separate into parent and child categories
+  const allCategories = categories || [];
+  
+  // Get parent categories (those without a parentId)
+  const parentCategories = allCategories.filter(c => !c.parentId);
+  console.log(`Found ${parentCategories.length} parent categories of ${allCategories.length} total`);
+  
   // Get subcategories for a given parent
   const getSubcategories = (parentId: string) => {
-    return categories 
-      ? categories.filter(c => c.parentId === parentId)
-      : [];
+    // Filter all categories to find those with matching parentId
+    const subcats = allCategories.filter(c => 
+      c.parentId && c.parentId.toString() === parentId.toString()
+    );
+    console.log(`Found ${subcats.length} subcategories for parent ${parentId}`);
+    return subcats;
   };
 
   // Filter categories based on search query
@@ -271,7 +284,7 @@ export default function CategoriesManagement() {
 
   return (
     <AdminLayout>
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto py-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-2xl font-bold">Categories Management</CardTitle>
@@ -609,13 +622,16 @@ export default function CategoriesManagement() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">None (Top-level category)</SelectItem>
-                        {parentCategories?.map((parent) => (
-                          <SelectItem key={parent._id} value={parent._id}>
+                        {categories?.filter(c => !c.parentId || c.parentId === "").map((parent) => (
+                          <SelectItem key={parent._id} value={parent._id} className="font-medium">
                             {parent.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormDescription className="text-xs mt-1">
+                      Select "None" for a top-level category or choose a parent to create a subcategory
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -638,11 +654,37 @@ export default function CategoriesManagement() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="shop_for">Shop For</SelectItem>
+                        <SelectItem value="accessories">Accessories</SelectItem>
+                        <SelectItem value="brands">Brands</SelectItem>
+                        <SelectItem value="age">Age</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="forPet"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pet Type</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select pet type (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="all">All Pets</SelectItem>
                         <SelectItem value="dog">Dog</SelectItem>
                         <SelectItem value="cat">Cat</SelectItem>
-                        <SelectItem value="bird">Bird</SelectItem>
-                        <SelectItem value="fish">Fish</SelectItem>
-                        <SelectItem value="small-pet">Small Pet</SelectItem>
+                        <SelectItem value="small_animal">Small Animal</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -30,7 +30,9 @@ const categorySchema = new Schema({
   description: { type: String },
   image: { type: String },
   isActive: { type: Boolean, default: true },
-  type: { type: String },
+  type: { type: String, enum: ['shop_for', 'accessories', 'brands', 'age', 'none'] },
+  forPet: { type: String, enum: ['dog', 'cat', 'small_animal', 'all'] },
+  displayOrder: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

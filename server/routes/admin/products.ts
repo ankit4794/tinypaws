@@ -1,8 +1,9 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { Product, insertProductSchema, insertProductVariantSchema } from '@shared/schema';
-import { storageProvider } from '../../index';
+import mongoose from 'mongoose';
+import { Product, Category } from '../../models';
+import { insertProductSchema, insertProductVariantSchema } from '@shared/schema';
 import { requireAdmin } from '../../middleware/admin-auth';
 
 const router = express.Router();
@@ -10,27 +11,55 @@ const router = express.Router();
 // Get all products (admin)
 router.get('/', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Use regular products method
-    const products = await storageProvider.instance.getProducts();
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+    const search = req.query.search as string;
+    const categoryId = req.query.category as string;
+    const brandId = req.query.brand as string;
     
-    // Populate category information for each product
-    const populatedProducts = await Promise.all(
-      products.map(async (product: any) => {
-        if (product.category) {
-          // Get the category name
-          const category = await storageProvider.instance.getCategoryBySlug(
-            product.category.toString()
-          );
-          return {
-            ...product.toObject(),
-            category: category || { name: 'Unknown' }
-          };
-        }
-        return product.toObject();
-      })
-    );
+    // Build query
+    const query: any = {};
     
-    res.json(populatedProducts);
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (categoryId) {
+      query.category = categoryId;
+    }
+    
+    if (brandId) {
+      query.brand = brandId;
+    }
+    
+    // Execute query with pagination
+    const [products, total] = await Promise.all([
+      Product.find(query)
+        .populate('category', 'name slug')
+        .populate('brand', 'name slug logo')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(query)
+    ]);
+    
+    // Format response
+    const response = {
+      products,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+    
+    res.json(response);
   } catch (error) {
     console.error('Error getting products:', error);
     res.status(500).json({ message: 'Failed to get products' });
@@ -41,7 +70,12 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const product = await storageProvider.instance.getProductById(id);
+    
+    // Find product by ID and populate related fields
+    const product = await Product.findById(id)
+      .populate('category', 'name slug')
+      .populate('brand', 'name slug logo')
+      .lean();
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -60,13 +94,35 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
     // Validate the request body
     const validatedData = insertProductSchema.parse(req.body);
     
-    if (!storageProvider.instance.createProduct) {
-      return res.status(501).json({ message: 'Product creation not implemented' });
+    // Create a slug from the name if not provided
+    if (!validatedData.slug) {
+      validatedData.slug = validatedData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
     }
     
+    // Check if slug already exists
+    const existingProduct = await Product.findOne({ slug: validatedData.slug });
+    if (existingProduct) {
+      return res.status(400).json({ 
+        message: 'A product with this slug already exists. Please choose a different name or provide a unique slug.' 
+      });
+    }
+    
+    // Create timestamps
+    const now = new Date();
+    
     // Create the product
-    const product = await storageProvider.instance.createProduct(validatedData);
-    res.status(201).json(product);
+    const newProduct = new Product({
+      ...validatedData,
+      createdAt: now,
+      updatedAt: now
+    });
+    
+    const savedProduct = await newProduct.save();
+    
+    res.status(201).json(savedProduct);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: 'Invalid product data', errors: error.errors });
@@ -85,18 +141,43 @@ router.put('/:id', requireAdmin, async (req: Request, res: Response) => {
     // Validate the request body
     const validatedData = insertProductSchema.partial().parse(req.body);
     
-    if (!storageProvider.instance.updateProduct) {
-      return res.status(501).json({ message: 'Product update not implemented' });
-    }
+    // Check if product exists
+    const existingProduct = await Product.findById(id);
     
-    // Update the product
-    const product = await storageProvider.instance.updateProduct(id, validatedData);
-    
-    if (!product) {
+    if (!existingProduct) {
       return res.status(404).json({ message: 'Product not found' });
     }
     
-    res.json(product);
+    // If slug is being updated, check for uniqueness
+    if (validatedData.slug && validatedData.slug !== existingProduct.slug) {
+      const slugExists = await Product.findOne({ 
+        slug: validatedData.slug, 
+        _id: { $ne: id } 
+      });
+      
+      if (slugExists) {
+        return res.status(400).json({ 
+          message: 'A product with this slug already exists. Please choose a different slug.' 
+        });
+      }
+    }
+    
+    // Create update data with updatedAt timestamp
+    const updateData = {
+      ...validatedData,
+      updatedAt: new Date()
+    };
+    
+    // Update the product
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+    .populate('category', 'name slug')
+    .populate('brand', 'name slug logo');
+    
+    res.json(updatedProduct);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: 'Invalid product data', errors: error.errors });
@@ -112,11 +193,18 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    if (!storageProvider.instance.deleteProduct) {
-      return res.status(501).json({ message: 'Product deletion not implemented' });
+    // Check if product exists
+    const product = await Product.findById(id);
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
     }
     
-    await storageProvider.instance.deleteProduct(id);
+    // Delete the product
+    await Product.findByIdAndDelete(id);
+    
+    // Consider: Also delete related items like reviews, cart items, etc.
+    
     res.sendStatus(204);
   } catch (error) {
     console.error('Error deleting product:', error);
@@ -124,7 +212,7 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// Add product variant - custom implementation until storage is updated
+// Add product variant - using MongoDB direct access
 router.post('/:id/variants', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -133,7 +221,7 @@ router.post('/:id/variants', requireAdmin, async (req: Request, res: Response) =
     const validatedData = insertProductVariantSchema.parse(req.body);
     
     // Get the product first
-    const product = await storageProvider.instance.getProductById(id);
+    const product = await Product.findById(id);
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -144,26 +232,31 @@ router.post('/:id/variants', requireAdmin, async (req: Request, res: Response) =
       product.variants = [];
     }
     
-    // Add the variant
+    // Add the variant with mongoose ObjectId
     const newVariant = {
       ...validatedData,
-      _id: new Date().getTime().toString(), // Create a unique ID
+      _id: new mongoose.Types.ObjectId(),
     };
     
+    // Push the new variant to the array
     product.variants.push(newVariant);
     
-    // Set hasVariants to true
+    // Set hasVariants to true and determine variant type
     product.hasVariants = true;
     if (!product.variantType || product.variantType === 'none') {
       product.variantType = validatedData.weightUnit ? 'weight' : 'pack';
     }
     
-    // Use the existing updateProduct method
-    if (!storageProvider.instance.updateProduct) {
-      return res.status(501).json({ message: 'Product variant creation not implemented - update method missing' });
-    }
+    // Update the modified timestamp
+    product.updatedAt = new Date();
     
-    const updatedProduct = await storageProvider.instance.updateProduct(id, product);
+    // Save the updated product
+    await product.save();
+    
+    // Fetch the updated product with populated fields
+    const updatedProduct = await Product.findById(id)
+      .populate('category', 'name slug')
+      .populate('brand', 'name slug logo');
     
     res.status(201).json(updatedProduct);
   } catch (error) {
@@ -176,7 +269,7 @@ router.post('/:id/variants', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-// Update product variant - custom implementation until storage is updated
+// Update product variant - using MongoDB direct access
 router.put('/:id/variants/:variantId', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id, variantId } = req.params;
@@ -184,32 +277,44 @@ router.put('/:id/variants/:variantId', requireAdmin, async (req: Request, res: R
     // Validate the request body
     const validatedData = insertProductVariantSchema.partial().parse(req.body);
     
-    // Get the product first
-    const product = await storageProvider.instance.getProductById(id);
+    // Find the product
+    const product = await Product.findById(id);
     
-    if (!product || !product.variants) {
+    if (!product || !product.variants || product.variants.length === 0) {
       return res.status(404).json({ message: 'Product or variants not found' });
     }
     
     // Find the variant index
-    const variantIndex = product.variants.findIndex((v: any) => v._id.toString() === variantId);
+    const variantIndex = product.variants.findIndex((v: any) => 
+      v._id.toString() === variantId
+    );
     
     if (variantIndex === -1) {
       return res.status(404).json({ message: 'Variant not found' });
     }
     
-    // Update the variant
+    // Update the variant by merging the existing variant with the updated data
+    // Check if the variant is a Mongoose document or a plain object
+    const existingVariant = product.variants[variantIndex];
+    const variantData = typeof existingVariant.toObject === 'function' 
+      ? existingVariant.toObject() 
+      : existingVariant;
+      
     product.variants[variantIndex] = {
-      ...product.variants[variantIndex],
+      ...variantData,
       ...validatedData
     };
     
-    // Use the existing updateProduct method
-    if (!storageProvider.instance.updateProduct) {
-      return res.status(501).json({ message: 'Product variant update not implemented - update method missing' });
-    }
+    // Update the modified timestamp
+    product.updatedAt = new Date();
     
-    const updatedProduct = await storageProvider.instance.updateProduct(id, product);
+    // Save the updated product
+    await product.save();
+    
+    // Fetch the updated product with populated fields
+    const updatedProduct = await Product.findById(id)
+      .populate('category', 'name slug')
+      .populate('brand', 'name slug logo');
     
     res.json(updatedProduct);
   } catch (error) {
@@ -222,20 +327,22 @@ router.put('/:id/variants/:variantId', requireAdmin, async (req: Request, res: R
   }
 });
 
-// Delete product variant - custom implementation until storage is updated
+// Delete product variant - using MongoDB direct access
 router.delete('/:id/variants/:variantId', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id, variantId } = req.params;
     
-    // Get the product first
-    const product = await storageProvider.instance.getProductById(id);
+    // Find the product
+    const product = await Product.findById(id);
     
-    if (!product || !product.variants) {
+    if (!product || !product.variants || product.variants.length === 0) {
       return res.status(404).json({ message: 'Product or variants not found' });
     }
     
     // Filter out the variant to delete
-    product.variants = product.variants.filter((v: any) => v._id.toString() !== variantId);
+    product.variants = product.variants.filter((v: any) => 
+      v._id.toString() !== variantId
+    );
     
     // If no variants left, update variant status
     if (product.variants.length === 0) {
@@ -243,12 +350,11 @@ router.delete('/:id/variants/:variantId', requireAdmin, async (req: Request, res
       product.variantType = 'none';
     }
     
-    // Use the existing updateProduct method
-    if (!storageProvider.instance.updateProduct) {
-      return res.status(501).json({ message: 'Product variant deletion not implemented - update method missing' });
-    }
+    // Update the modified timestamp
+    product.updatedAt = new Date();
     
-    await storageProvider.instance.updateProduct(id, product);
+    // Save the updated product
+    await product.save();
     
     res.sendStatus(204);
   } catch (error) {

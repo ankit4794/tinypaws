@@ -1,10 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useAdminProducts } from "@/hooks/admin/use-admin-products";
 import { useCategories } from "@/hooks/use-categories";
+import { useAdminBrands } from "@/hooks/admin/use-admin-brands";
+import { 
+  Image as ImageIcon, 
+  X, 
+  UploadCloud, 
+  Check, 
+  Edit, 
+  Trash2, 
+  Plus, 
+  Tag,
+  PackageOpen,
+  Loader2,
+  Scale,
+  Package,
+  DollarSign,
+  ShoppingBag
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -50,7 +68,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Trash2, Plus, Edit, Tag, PackageOpen } from "lucide-react";
 import { insertProductSchema, insertProductVariantSchema } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -70,7 +87,20 @@ const productFormSchema = insertProductSchema
 
 // Extend the variant schema for form validation
 const variantFormSchema = insertProductVariantSchema.extend({
-  // Add any extra validation here
+  // Enhance form validation
+  name: z.string().min(1, "Name is required"),
+  sku: z.string().min(1, "SKU is required"),
+  price: z.number().min(0, "Price must be a positive number"),
+  stock: z.number().min(0, "Stock must be a non-negative number"),
+  
+  // Conditionally optional fields depending on variant type
+  weight: z.number().nullable(),
+  weightUnit: z.enum(["g", "kg"]).nullable(),
+  packSize: z.number().nullable(),
+  
+  // This will be validated conditionally in form submission
+  isDefault: z.boolean().default(false),
+  isActive: z.boolean().default(true),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -78,13 +108,48 @@ type VariantFormValues = z.infer<typeof variantFormSchema>;
 
 export default function AdminProductsPage() {
   const { toast } = useToast();
-  const { products, isLoadingProducts, createProductMutation, updateProductMutation, deleteProductMutation } = useAdminProducts();
+  const { 
+    products, 
+    isLoadingProducts, 
+    createProductMutation, 
+    updateProductMutation, 
+    deleteProductMutation,
+    addVariantMutation,
+    updateVariantMutation,
+    deleteVariantMutation
+  } = useAdminProducts();
   const { categories, isLoading: isLoadingCategories } = useCategories();
+  const { brands, isLoading: isLoadingBrands } = useAdminBrands();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<any>(null);
   const [featureInput, setFeatureInput] = useState('');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [defaultImageIndex, setDefaultImageIndex] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Variant Management
+  const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
+  const [isEditingVariant, setIsEditingVariant] = useState(false);
+  const [currentVariant, setCurrentVariant] = useState<any>(null);
+  
+  // Variant Form
+  const variantForm = useForm<VariantFormValues>({
+    resolver: zodResolver(variantFormSchema),
+    defaultValues: {
+      name: "",
+      sku: "",
+      price: 0,
+      originalPrice: null,
+      stock: 0,
+      weight: null,
+      weightUnit: null,
+      packSize: null,
+      isDefault: false,
+      isActive: true,
+    },
+  });
 
   // Product Form
   const productForm = useForm<ProductFormValues>({
@@ -121,7 +186,7 @@ export default function AdminProductsPage() {
       images: [],
       features: [],
       category: "",
-      brand: "",
+      brand: "no-brand", // Use "no-brand" instead of empty string
       ageGroup: "none",
       stock: 0,
       isActive: true,
@@ -149,11 +214,26 @@ export default function AdminProductsPage() {
           "https://storage.googleapis.com/tinypaws-bucket/placeholder-product.png",
         ];
       }
+      
+      // Process "no-brand" value to null for the backend to avoid ObjectId casting issues
+      if (data.brand === "no-brand" || data.brand === "") {
+        data.brand = null as any; // Cast to any to satisfy TypeScript
+      }
 
       await createProductMutation.mutateAsync(data);
       setIsCreateDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Product created successfully",
+      });
     } catch (error) {
       console.error("Error creating product:", error);
+      toast({
+        title: "Error creating product",
+        description: error instanceof Error ? error.message : "Failed to create product",
+        variant: "destructive",
+      });
     }
   };
 
@@ -161,6 +241,10 @@ export default function AdminProductsPage() {
   const handleOpenEditDialog = (product: any) => {
     setCurrentProduct(product);
     
+    // Convert empty/null brand to "no-brand" for the form
+    const brandValue = !product.brand ? "no-brand" : product.brand;
+    
+    // Reset the product form with the product data
     productForm.reset({
       name: product.name,
       slug: product.slug,
@@ -171,7 +255,7 @@ export default function AdminProductsPage() {
       images: product.images || [],
       features: product.features || [],
       category: product.category?._id || product.category,
-      brand: product.brand || "",
+      brand: brandValue,
       ageGroup: product.ageGroup || "none",
       stock: product.stock || 0,
       isActive: product.isActive !== false, // Default to true
@@ -179,6 +263,9 @@ export default function AdminProductsPage() {
       variantType: product.variantType || "none",
       variants: product.variants || [],
     });
+    
+    // Set default image index to 0 (first image)
+    setDefaultImageIndex(0);
     
     setIsEditDialogOpen(true);
   };
@@ -188,13 +275,28 @@ export default function AdminProductsPage() {
     if (!currentProduct) return;
     
     try {
+      // Process "no-brand" value to null for the backend to avoid ObjectId casting issues
+      if (data.brand === "no-brand" || data.brand === "") {
+        data.brand = null as any; // Cast to any to satisfy TypeScript
+      }
+      
       await updateProductMutation.mutateAsync({
         id: currentProduct._id,
         data,
       });
       setIsEditDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      });
     } catch (error) {
       console.error("Error updating product:", error);
+      toast({
+        title: "Error updating product",
+        description: error instanceof Error ? error.message : "Failed to update product",
+        variant: "destructive",
+      });
     }
   };
 
@@ -246,6 +348,332 @@ export default function AdminProductsPage() {
       .replace(/(^-|-$)/g, "");
     
     productForm.setValue("slug", slug);
+  };
+  
+  // Handle image upload
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) return;
+    
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      
+      // Add all selected files to the form data
+      Array.from(event.target.files).forEach((file) => {
+        formData.append("images", file);
+      });
+      
+      // Make API request to upload images
+      const response = await fetch("/api/admin/upload/products", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to upload images");
+      }
+      
+      const result = await response.json();
+      
+      // Our API returns { urls: [...] } for multiple images
+      if (!result.urls || result.urls.length === 0) {
+        throw new Error("No image URLs returned");
+      }
+      
+      // Get existing images from form
+      const existingImages = productForm.getValues("images") || [];
+      
+      // Add the new image URLs to the form
+      const updatedImages = [...existingImages, ...result.urls];
+      productForm.setValue("images", updatedImages);
+      
+      // Set first image as default if no images existed before
+      if (existingImages.length === 0) {
+        setDefaultImageIndex(0);
+      }
+      
+      toast({
+        title: "Images uploaded",
+        description: `Successfully uploaded ${result.urls.length} image(s)`,
+      });
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload images",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+  
+  // Handle setting default image
+  const setDefaultImage = (index: number) => {
+    setDefaultImageIndex(index);
+    
+    // Rearrange images so the default is first
+    const images = [...productForm.getValues("images")];
+    const defaultImage = images[index];
+    
+    // Remove the image at the index
+    images.splice(index, 1);
+    // Add it to the front of the array
+    images.unshift(defaultImage);
+    
+    // Update form
+    productForm.setValue("images", images);
+    setDefaultImageIndex(0); // After rearranging, default is at index 0
+  };
+  
+  // Handle removing an image
+  const removeImage = (index: number) => {
+    const images = [...productForm.getValues("images")];
+    
+    // Don't allow removing the last image
+    if (images.length <= 1) {
+      toast({
+        title: "Cannot remove image",
+        description: "Products must have at least one image",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Remove the image at the index
+    images.splice(index, 1);
+    
+    // Update form
+    productForm.setValue("images", images);
+    
+    // Adjust default index if needed
+    if (index === defaultImageIndex) {
+      setDefaultImageIndex(0);
+    } else if (index < defaultImageIndex) {
+      setDefaultImageIndex(defaultImageIndex - 1);
+    }
+  };
+  
+  // Variant Management
+  
+  // Open variant dialog for adding a new variant
+  const handleOpenAddVariantDialog = () => {
+    if (!currentProduct) {
+      toast({
+        title: "Error",
+        description: "Please save the product first before adding variants",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Reset variant form
+    variantForm.reset({
+      name: "",
+      sku: `${currentProduct.sku || currentProduct.slug}-v${
+        (currentProduct.variants?.length || 0) + 1
+      }`,
+      price: currentProduct.price || 0,
+      originalPrice: currentProduct.originalPrice || null,
+      stock: 0,
+      weight: null,
+      weightUnit: productForm.getValues("variantType") === "weight" ? "g" : null,
+      packSize: productForm.getValues("variantType") === "pack" ? 1 : null,
+      isDefault: false,
+      isActive: true,
+    });
+    
+    setCurrentVariant(null);
+    setIsEditingVariant(false);
+    setIsVariantDialogOpen(true);
+  };
+  
+  // Open variant dialog for editing an existing variant
+  const handleOpenEditVariantDialog = (variant: any) => {
+    if (!currentProduct) return;
+    
+    setCurrentVariant(variant);
+    
+    // Reset variant form with the variant data
+    variantForm.reset({
+      name: variant.name || "",
+      sku: variant.sku || "",
+      price: variant.price || 0,
+      originalPrice: variant.originalPrice || null,
+      stock: variant.stock || 0,
+      weight: variant.weight || null,
+      weightUnit: variant.weightUnit || null,
+      packSize: variant.packSize || null,
+      isDefault: variant.isDefault || false,
+      isActive: variant.isActive !== false, // Default to true
+    });
+    
+    setIsEditingVariant(true);
+    setIsVariantDialogOpen(true);
+  };
+  
+  // Add a new variant
+  const handleAddVariant = async (data: VariantFormValues) => {
+    if (!currentProduct) return;
+    
+    // Additional validation based on the variant type
+    try {
+      const variantType = productForm.getValues("variantType");
+      
+      // For weight variants, weight and weightUnit are required
+      if (variantType === "weight") {
+        if (data.weight === null || data.weight === undefined) {
+          throw new Error("Weight is required for weight-based variants");
+        }
+        if (!data.weightUnit) {
+          throw new Error("Weight unit is required for weight-based variants");
+        }
+        // Clear pack size field
+        data.packSize = null;
+      }
+      
+      // For pack variants, packSize is required
+      if (variantType === "pack") {
+        if (data.packSize === null || data.packSize === undefined || data.packSize <= 0) {
+          throw new Error("Pack size is required for pack-based variants");
+        }
+        // Clear weight fields
+        data.weight = null;
+        data.weightUnit = null;
+      }
+      
+      // If this is set as the default variant, we need to update other variants
+      if (data.isDefault) {
+        // We'll handle this on the server side to ensure consistency
+      }
+      
+      // Send the variant data to the server
+      await addVariantMutation.mutateAsync({
+        productId: currentProduct._id,
+        variantData: data,
+      });
+      
+      setIsVariantDialogOpen(false);
+      
+      // Update the current product's variant list in the form
+      const updatedProduct = await fetch(`/api/admin/products/${currentProduct._id}`).then(res => res.json());
+      if (updatedProduct) {
+        productForm.setValue("variants", updatedProduct.variants || []);
+        setCurrentProduct(updatedProduct);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Variant added successfully",
+      });
+    } catch (error) {
+      console.error("Error adding variant:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add variant",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Update an existing variant
+  const handleUpdateVariant = async (data: VariantFormValues) => {
+    if (!currentProduct || !currentVariant) return;
+    
+    // Additional validation based on the variant type
+    try {
+      const variantType = productForm.getValues("variantType");
+      
+      // For weight variants, weight and weightUnit are required
+      if (variantType === "weight") {
+        if (data.weight === null || data.weight === undefined) {
+          throw new Error("Weight is required for weight-based variants");
+        }
+        if (!data.weightUnit) {
+          throw new Error("Weight unit is required for weight-based variants");
+        }
+        // Clear pack size field
+        data.packSize = null;
+      }
+      
+      // For pack variants, packSize is required
+      if (variantType === "pack") {
+        if (data.packSize === null || data.packSize === undefined || data.packSize <= 0) {
+          throw new Error("Pack size is required for pack-based variants");
+        }
+        // Clear weight fields
+        data.weight = null;
+        data.weightUnit = null;
+      }
+      
+      // If this is set as the default variant, we need to update other variants
+      if (data.isDefault) {
+        // We'll handle this on the server side to ensure consistency
+      }
+      
+      await updateVariantMutation.mutateAsync({
+        productId: currentProduct._id,
+        variantId: currentVariant._id,
+        variantData: data,
+      });
+      
+      setIsVariantDialogOpen(false);
+      
+      // Update the current product's variant list in the form
+      const updatedProduct = await fetch(`/api/admin/products/${currentProduct._id}`).then(res => res.json());
+      if (updatedProduct) {
+        productForm.setValue("variants", updatedProduct.variants || []);
+        setCurrentProduct(updatedProduct);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Variant updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating variant:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update variant",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Delete a variant
+  const handleDeleteVariant = async (variantId: string) => {
+    if (!currentProduct) return;
+    
+    try {
+      await deleteVariantMutation.mutateAsync({
+        productId: currentProduct._id,
+        variantId,
+      });
+      
+      // Update the current product's variant list in the form
+      const updatedProduct = await fetch(`/api/admin/products/${currentProduct._id}`).then(res => res.json());
+      if (updatedProduct) {
+        productForm.setValue("variants", updatedProduct.variants || []);
+        setCurrentProduct(updatedProduct);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Variant deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting variant:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete variant",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -457,9 +885,35 @@ export default function AdminProductsPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Brand</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value || ""} />
-                          </FormControl>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a brand" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="no-brand">No Brand</SelectItem>
+                              {isLoadingBrands ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  Loading brands...
+                                </div>
+                              ) : brands && brands.length > 0 ? (
+                                brands.map((brand) => (
+                                  <SelectItem key={brand._id} value={brand._id}>
+                                    {brand.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-center text-sm text-muted-foreground">
+                                  No brands found
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -536,6 +990,101 @@ export default function AdminProductsPage() {
                         </FormItem>
                       )}
                     />
+                    
+                    {/* Images upload section */}
+                    <div className="col-span-2">
+                      <FormLabel className="block mb-2">Product Images</FormLabel>
+                      <div className="space-y-4">
+                        {/* File input for image upload */}
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImageUpload}
+                            ref={fileInputRef}
+                            className="hidden"
+                            id="image-upload"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-1"
+                          >
+                            {isUploading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Upload Images
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* Image previews */}
+                        <div className="grid grid-cols-4 gap-4">
+                          {productForm.watch("images")?.map((image, index) => (
+                            <div 
+                              key={index} 
+                              className={`relative group rounded-md overflow-hidden border ${
+                                index === defaultImageIndex ? "ring-2 ring-primary" : ""
+                              }`}
+                            >
+                              <img 
+                                src={image} 
+                                alt={`Product image ${index + 1}`} 
+                                className="w-full h-24 object-cover"
+                              />
+                              
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                {index === defaultImageIndex ? (
+                                  <Badge className="absolute top-2 left-2 bg-primary text-white">
+                                    Default
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setDefaultImage(index)}
+                                    className="absolute top-1 left-1 text-white hover:text-primary"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeImage(index)}
+                                  className="absolute top-1 right-1 text-white hover:text-destructive"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Show a message if no images are uploaded */}
+                        {(!productForm.watch("images") || productForm.watch("images").length === 0) && (
+                          <div className="text-center p-4 border border-dashed rounded-md text-muted-foreground">
+                            <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <p>No images uploaded yet</p>
+                            <p className="text-xs mt-1">
+                              Upload at least one image for your product
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     <FormField
                       control={productForm.control}
@@ -691,43 +1240,150 @@ export default function AdminProductsPage() {
                   />
 
                   {productForm.watch("hasVariants") && (
-                    <FormField
-                      control={productForm.control}
-                      name="variantType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Variant Type</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value || "weight"}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select variant type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="weight">
-                                <div className="flex items-center">
-                                  <Tag className="h-4 w-4 mr-2" />
-                                  <span>Weight Options (g/kg)</span>
+                    <>
+                      <FormField
+                        control={productForm.control}
+                        name="variantType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Variant Type</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value || "weight"}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select variant type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="weight">
+                                  <div className="flex items-center">
+                                    <Scale className="h-4 w-4 mr-2" />
+                                    <span>Weight Options (g/kg)</span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="pack">
+                                  <div className="flex items-center">
+                                    <Package className="h-4 w-4 mr-2" />
+                                    <span>Pack Sizes</span>
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              {isCreateDialogOpen
+                                ? "After creating the product, you can add specific variants"
+                                : "Select the type of variants for this product"}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      {!isCreateDialogOpen && (
+                        <div className="border rounded-lg p-4 mt-4">
+                          <div className="flex justify-between items-center mb-4">
+                            <h4 className="text-base font-medium">
+                              {productForm.watch("variantType") === "weight"
+                                ? "Weight Options"
+                                : "Pack Size Options"}
+                            </h4>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleOpenAddVariantDialog}
+                              size="sm"
+                            >
+                              <Plus className="h-4 w-4 mr-2" /> 
+                              Add {productForm.watch("variantType") === "weight" ? "Weight" : "Pack"} Variant
+                            </Button>
+                          </div>
+                          
+                          {currentProduct?.variants?.length > 0 ? (
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                              {currentProduct.variants.map((variant: any) => (
+                                <div 
+                                  key={variant._id} 
+                                  className={`flex items-center justify-between p-3 border rounded-md ${
+                                    variant.isDefault ? "border-primary bg-primary/5" : ""
+                                  }`}
+                                >
+                                  <div className="flex flex-col">
+                                    <div className="flex items-center">
+                                      <span className="font-medium mr-2">{variant.name}</span>
+                                      {variant.isDefault && (
+                                        <Badge variant="outline" className="bg-primary/10">Default</Badge>
+                                      )}
+                                      {!variant.isActive && (
+                                        <Badge variant="outline" className="bg-destructive/10 ml-2">Inactive</Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground flex items-center gap-4 mt-1">
+                                      <span className="flex items-center">
+                                        <DollarSign className="h-3 w-3 mr-1" />
+                                        ₹{variant.price.toFixed(2)}
+                                        {variant.originalPrice && (
+                                          <span className="ml-1 text-xs line-through">
+                                            ₹{variant.originalPrice.toFixed(2)}
+                                          </span>
+                                        )}
+                                      </span>
+                                      
+                                      {/* Show weight or pack size information */}
+                                      {productForm.watch("variantType") === "weight" && variant.weight && variant.weightUnit && (
+                                        <span className="flex items-center">
+                                          <Scale className="h-3 w-3 mr-1" />
+                                          {variant.weight} {variant.weightUnit}
+                                        </span>
+                                      )}
+                                      
+                                      {productForm.watch("variantType") === "pack" && variant.packSize && (
+                                        <span className="flex items-center">
+                                          <Package className="h-3 w-3 mr-1" />
+                                          Pack of {variant.packSize}
+                                        </span>
+                                      )}
+                                      
+                                      <span className="flex items-center">
+                                        <ShoppingBag className="h-3 w-3 mr-1" />
+                                        Stock: {variant.stock}
+                                      </span>
+                                      
+                                      <span className="text-xs">SKU: {variant.sku}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenEditVariantDialog(variant)}
+                                      className="h-8 w-8"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteVariant(variant._id)}
+                                      className="h-8 w-8 text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              </SelectItem>
-                              <SelectItem value="pack">
-                                <div className="flex items-center">
-                                  <PackageOpen className="h-4 w-4 mr-2" />
-                                  <span>Pack Sizes</span>
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            After creating the product, you can add specific variants
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center p-4 text-muted-foreground border rounded-md">
+                              No variants added yet. Click "Add Variant" to create your first variant.
+                            </div>
+                          )}
+                        </div>
                       )}
-                    />
+                    </>
                   )}
 
                   <div className="pt-4">
@@ -857,9 +1513,35 @@ export default function AdminProductsPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Brand</FormLabel>
-                            <FormControl>
-                              <Input {...field} value={field.value || ""} />
-                            </FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a brand" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="no-brand">No Brand</SelectItem>
+                                {isLoadingBrands ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Loading brands...
+                                  </div>
+                                ) : brands && brands.length > 0 ? (
+                                  brands.map((brand) => (
+                                    <SelectItem key={brand._id} value={brand._id}>
+                                      {brand.name}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <div className="p-2 text-center text-sm text-muted-foreground">
+                                    No brands found
+                                  </div>
+                                )}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -936,6 +1618,101 @@ export default function AdminProductsPage() {
                           </FormItem>
                         )}
                       />
+
+                      {/* Images upload section */}
+                      <div className="col-span-2">
+                        <FormLabel className="block mb-2">Product Images</FormLabel>
+                        <div className="space-y-4">
+                          {/* File input for image upload */}
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageUpload}
+                              ref={fileInputRef}
+                              className="hidden"
+                              id="image-upload-edit"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploading}
+                              className="flex-1"
+                            >
+                              {isUploading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <UploadCloud className="mr-2 h-4 w-4" />
+                                  Upload Images
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          
+                          {/* Image previews */}
+                          <div className="grid grid-cols-4 gap-4">
+                            {productForm.watch("images")?.map((image, index) => (
+                              <div 
+                                key={index} 
+                                className={`relative group rounded-md overflow-hidden border ${
+                                  index === defaultImageIndex ? "ring-2 ring-primary" : ""
+                                }`}
+                              >
+                                <img 
+                                  src={image} 
+                                  alt={`Product image ${index + 1}`} 
+                                  className="w-full h-24 object-cover"
+                                />
+                                
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  {index === defaultImageIndex ? (
+                                    <Badge className="absolute top-2 left-2 bg-primary text-white">
+                                      Default
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => setDefaultImage(index)}
+                                      className="absolute top-1 left-1 text-white hover:text-primary"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeImage(index)}
+                                    className="absolute top-1 right-1 text-white hover:text-destructive"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Show a message if no images are uploaded */}
+                          {(!productForm.watch("images") || productForm.watch("images").length === 0) && (
+                            <div className="text-center p-4 border border-dashed rounded-md text-muted-foreground">
+                              <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                              <p>No images uploaded yet</p>
+                              <p className="text-xs mt-1">
+                                Upload at least one image for your product
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
                       <FormField
                         control={productForm.control}
@@ -1151,42 +1928,70 @@ export default function AdminProductsPage() {
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => {
-                              // Will be implemented with a separate dialog for adding variants
-                              toast({
-                                title: "Coming Soon",
-                                description: "Variant management will be available soon",
-                              });
-                            }}
+                            onClick={handleOpenAddVariantDialog}
                           >
                             <Plus className="h-4 w-4 mr-2" /> Add Variant
                           </Button>
                         </div>
 
                         {(currentProduct.variants?.length ?? 0) > 0 ? (
-                          <div className="border rounded-md divide-y">
+                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                             {currentProduct.variants.map((variant: any) => (
-                              <div
-                                key={variant._id}
-                                className="p-4 flex items-center justify-between"
+                              <div 
+                                key={variant._id} 
+                                className={`flex items-center justify-between p-3 border rounded-md ${
+                                  variant.isDefault ? "border-primary bg-primary/5" : ""
+                                }`}
                               >
-                                <div>
-                                  <h4 className="font-medium">{variant.name}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    SKU: {variant.sku} | Price: ₹{variant.price.toFixed(2)}{" "}
-                                    | Stock: {variant.stock}
-                                  </p>
-                                  {variant.isDefault && (
-                                    <Badge variant="outline" className="mt-1">
-                                      Default
-                                    </Badge>
-                                  )}
+                                <div className="flex flex-col">
+                                  <div className="flex items-center">
+                                    <span className="font-medium mr-2">{variant.name}</span>
+                                    {variant.isDefault && (
+                                      <Badge variant="outline" className="bg-primary/10">Default</Badge>
+                                    )}
+                                    {!variant.isActive && (
+                                      <Badge variant="outline" className="bg-destructive/10 ml-2">Inactive</Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground flex items-center gap-4 mt-1">
+                                    <span className="flex items-center">
+                                      <DollarSign className="h-3 w-3 mr-1" />
+                                      ₹{variant.price.toFixed(2)}
+                                    </span>
+                                    <span className="flex items-center">
+                                      <ShoppingBag className="h-3 w-3 mr-1" />
+                                      Stock: {variant.stock}
+                                    </span>
+                                    {variant.weight && (
+                                      <span>
+                                        {variant.weight}{variant.weightUnit}
+                                      </span>
+                                    )}
+                                    {variant.packSize && (
+                                      <span>
+                                        Pack of {variant.packSize}
+                                      </span>
+                                    )}
+                                    <span className="text-xs">SKU: {variant.sku}</span>
+                                  </div>
                                 </div>
-                                <div className="flex space-x-2">
-                                  <Button variant="ghost" size="icon">
+                                <div className="flex space-x-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenEditVariantDialog(variant)}
+                                    className="h-8 w-8"
+                                  >
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteVariant(variant._id)}
+                                    className="h-8 w-8 text-destructive"
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
@@ -1198,13 +2003,6 @@ export default function AdminProductsPage() {
                             No variants added yet. Click "Add Variant" to create your first variant.
                           </div>
                         )}
-
-                        <div className="pt-4">
-                          <FormDescription>
-                            After updating the basic product information, you can add, edit, or
-                            remove variants in a future update.
-                          </FormDescription>
-                        </div>
                       </div>
                     ) : (
                       <div className="text-center p-8 border rounded-md">
@@ -1286,6 +2084,295 @@ export default function AdminProductsPage() {
               Delete
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Variant Dialog */}
+      <Dialog open={isVariantDialogOpen} onOpenChange={setIsVariantDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditingVariant ? "Edit Variant" : "Add Variant"}
+            </DialogTitle>
+            <DialogDescription>
+              {productForm.watch("variantType") === "weight"
+                ? "Create a weight-based variant option"
+                : "Create a pack size variant option"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...variantForm}>
+            <form 
+              onSubmit={variantForm.handleSubmit(
+                isEditingVariant ? handleUpdateVariant : handleAddVariant
+              )}
+              className="space-y-4 py-2"
+            >
+              <FormField
+                control={variantForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Variant Name*</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder={
+                        productForm.watch("variantType") === "weight"
+                          ? "e.g. Small (200g), Medium (500g)"
+                          : "e.g. Single Pack, Pack of 3"
+                      } />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={variantForm.control}
+                  name="sku"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SKU</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Unique SKU for this variant" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={variantForm.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock*</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={variantForm.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price (₹)*</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          step="0.01"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={variantForm.control}
+                  name="originalPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Original Price (₹)</FormLabel>
+                      <FormDescription>If on sale, show strikethrough</FormDescription>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          step="0.01"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value !== '' 
+                              ? parseFloat(e.target.value) 
+                              : null;
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              {/* Weight-specific fields */}
+              {productForm.watch("variantType") === "weight" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={variantForm.control}
+                    name="weight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Weight*</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            step="0.01"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => {
+                              const value = e.target.value !== '' 
+                                ? parseFloat(e.target.value) 
+                                : null;
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={variantForm.control}
+                    name="weightUnit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Weight Unit*</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || "g"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="g">
+                              <div className="flex items-center">
+                                <span>Grams (g)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="kg">
+                              <div className="flex items-center">
+                                <span>Kilograms (kg)</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              
+              {/* Pack-specific fields */}
+              {productForm.watch("variantType") === "pack" && (
+                <FormField
+                  control={variantForm.control}
+                  name="packSize"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pack Size*</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value !== '' 
+                              ? parseInt(e.target.value) 
+                              : null;
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>Number of items in this pack</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={variantForm.control}
+                  name="isDefault"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Default Variant</FormLabel>
+                        <FormDescription>
+                          Selected by default on product page
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={variantForm.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Active</FormLabel>
+                        <FormDescription>
+                          Show this variant on the store
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <DialogFooter className="pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsVariantDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    isEditingVariant 
+                      ? updateVariantMutation.isPending 
+                      : addVariantMutation.isPending
+                  }
+                >
+                  {(isEditingVariant ? updateVariantMutation.isPending : addVariantMutation.isPending) && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isEditingVariant ? "Update" : "Add"} Variant
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </AdminLayout>

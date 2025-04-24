@@ -20,6 +20,7 @@ import adminAuthRoutes from "./routes/admin/auth";
 import adminOrdersRoutes from "./routes/admin/orders";
 import adminCustomersRoutes from "./routes/admin/customers";
 import adminHelpdeskRoutes from "./routes/admin/helpdesk";
+import adminUploadRoutes from "./routes/admin/upload";
 import helpdeskRoutes from "./routes/helpdesk";
 import newsletterRoutes from "./routes/newsletter";
 import pincodesRoutes from "./routes/pincodes";
@@ -55,6 +56,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add endpoint to get product by slug (must come BEFORE the :id route to avoid conflicts)
+  app.get("/api/products/slug/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const product = await storageProvider.instance.getProductBySlug(slug);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product by slug:", error);
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+  
+  // 'similar/:id' must also come before the generic :id route to avoid conflicts
+  app.get("/api/products/similar/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const similarProducts = await storageProvider.instance.getSimilarProducts(id);
+      res.json(similarProducts);
+    } catch (error) {
+      console.error("Error fetching similar products:", error);
+      res.status(500).json({ message: "Failed to fetch similar products" });
+    }
+  });
+  
   app.get("/api/products/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -66,19 +96,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(product);
     } catch (error) {
-      console.error("Error fetching product:", error);
+      console.error("Error fetching product by ID:", error);
       res.status(500).json({ message: "Failed to fetch product" });
-    }
-  });
-
-  app.get("/api/products/similar/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const similarProducts = await storageProvider.instance.getSimilarProducts(id);
-      res.json(similarProducts);
-    } catch (error) {
-      console.error("Error fetching similar products:", error);
-      res.status(500).json({ message: "Failed to fetch similar products" });
     }
   });
 
@@ -392,6 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin/orders", adminOrdersRoutes);
   app.use("/api/admin/customers", adminCustomersRoutes);
   app.use("/api/admin/helpdesk", adminHelpdeskRoutes);
+  app.use("/api/admin/upload", adminUploadRoutes);
   
   // Additional legacy routes to maintain backward compatibility (frontend expects these paths)
   app.post("/api/admin/login", async (req, res) => {

@@ -17,36 +17,30 @@ export class GCSStorageService {
   private pipeline = promisify(stream.pipeline);
 
   constructor() {
-    // Check if we have a JSON key file
-    const keyFilePath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     this.bucketName = process.env.GCS_BUCKET_NAME || '';
     
     if (!this.bucketName) {
       throw new Error('GCS_BUCKET_NAME environment variable is required');
     }
 
-    if (keyFilePath) {
-      // Initialize with explicit key file
-      this.storage = new Storage({
-        keyFilename: keyFilePath
-      });
-    } else {
-      // Check if we have JSON credentials directly
-      const credentials = process.env.GCS_CREDENTIALS;
+    // Check if we have JSON credentials directly
+    const credentials = process.env.GCS_CREDENTIALS;
+
+    console.log(credentials, "credentials");
       
-      if (credentials) {
-        try {
-          const parsedCredentials = JSON.parse(credentials);
-          this.storage = new Storage({
-            credentials: parsedCredentials
-          });
-        } catch (error) {
-          throw new Error('Invalid GCS_CREDENTIALS format. Must be a valid JSON string.');
-        }
-      } else {
-        // Fall back to default authentication (useful for local development or when using service accounts)
-        this.storage = new Storage();
+    if (credentials) {
+      try {
+        const parsedCredentials = JSON.parse(credentials);
+        console.log(parsedCredentials, "parsedCredentials");
+        this.storage = new Storage({
+          credentials: parsedCredentials
+        });
+      } catch (error) {
+        throw new Error('Invalid GCS_CREDENTIALS format. Must be a valid JSON string.');
       }
+    } else {
+      // Fall back to default authentication (useful for local development or when using service accounts)
+      this.storage = new Storage();
     }
 
     // Get bucket reference

@@ -429,13 +429,6 @@ export class MongoDBStorage implements IStorage {
       
       const product = await Product.findById(id)
         .populate('category')
-        .populate({
-          path: 'reviews',
-          populate: {
-            path: 'user',
-            select: 'username fullName'
-          }
-        })
         .lean();
       
       return product || undefined;
@@ -449,13 +442,6 @@ export class MongoDBStorage implements IStorage {
     try {
       const product = await Product.findOne({ slug })
         .populate('category')
-        .populate({
-          path: 'reviews',
-          populate: {
-            path: 'user',
-            select: 'username fullName'
-          }
-        })
         .lean();
       
       return product || undefined;
@@ -520,23 +506,21 @@ export class MongoDBStorage implements IStorage {
   // Category-related methods
   async getCategories(): Promise<Category[]> {
     try {
-      // Find all main categories (no parentId)
-      const categories = await Category.find({
-        isActive: true,
-        parentId: { $exists: false }
-      })
-      .sort({ name: 1 })
-      .lean();
+      // Get all categories
+      const allCategories = await Category.find({
+        isActive: true
+      }).sort({ name: 1 }).lean();
       
-      // For each category, find its subcategories
+      // Identify parent categories (where parentId doesn't exist or is null)
+      const parentCategories = allCategories.filter(cat => !cat.parentId);
+      
+      // For each parent category, find its subcategories
       const categoriesWithSubs = await Promise.all(
-        categories.map(async (category) => {
-          const subCategories = await Category.find({
-            parentId: category._id,
-            isActive: true
-          })
-          .sort({ name: 1 })
-          .lean();
+        parentCategories.map(async (category) => {
+          // Find subcategories from the already loaded allCategories array
+          const subCategories = allCategories.filter(
+            cat => cat.parentId && cat.parentId.toString() === category._id.toString()
+          );
           
           return {
             ...category,
@@ -544,6 +528,9 @@ export class MongoDBStorage implements IStorage {
           };
         })
       );
+      
+      // For debug purposes
+      console.log(`Found ${allCategories.length} total categories, ${parentCategories.length} parent categories`);
       
       return categoriesWithSubs;
     } catch (error) {
@@ -1217,9 +1204,15 @@ export class MongoDBStorage implements IStorage {
 
   async createProduct(productData: any): Promise<Product> {
     try {
+      // Handle empty or null brand field
+      if (productData.brand === "" || productData.brand === null || productData.brand === undefined) {
+        delete productData.brand; // Remove the brand field to avoid ObjectId casting issues
+      }
+      
       const newProduct = new Product(productData);
       await newProduct.save();
-      return newProduct;
+      // Return a plain JavaScript object instead of a Mongoose document
+      return newProduct.toObject();
     } catch (error) {
       console.error('Error creating product:', error);
       throw error;
@@ -1230,6 +1223,14 @@ export class MongoDBStorage implements IStorage {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return undefined;
+      }
+      
+      // Handle empty or null brand field
+      if (productData.brand === "" || productData.brand === null || productData.brand === undefined) {
+        // Use $unset to remove the brand field entirely
+        await Product.findByIdAndUpdate(id, { $unset: { brand: "" } });
+        // Remove from the data we're setting to avoid conflicts
+        delete productData.brand;
       }
       
       const product = await Product.findByIdAndUpdate(
@@ -1260,9 +1261,18 @@ export class MongoDBStorage implements IStorage {
 
   async createCategory(categoryData: any): Promise<Category> {
     try {
-      const newCategory = new Category(categoryData);
+      // Clean up the categoryData to handle parentId properly
+      const cleanedData = { ...categoryData };
+      
+      // If parentId is empty string or null/undefined, remove it entirely
+      if (!cleanedData.parentId) {
+        delete cleanedData.parentId;
+      }
+      
+      const newCategory = new Category(cleanedData);
       await newCategory.save();
-      return newCategory;
+      // Return as plain object to avoid toObject() issues later
+      return newCategory.toObject();
     } catch (error) {
       console.error('Error creating category:', error);
       throw error;
@@ -1275,9 +1285,17 @@ export class MongoDBStorage implements IStorage {
         return undefined;
       }
       
+      // Clean up the categoryData to handle parentId properly
+      const cleanedData = { ...categoryData };
+      
+      // If parentId is empty string or null/undefined, remove it entirely
+      if (!cleanedData.parentId) {
+        delete cleanedData.parentId;
+      }
+      
       const category = await Category.findByIdAndUpdate(
         id,
-        { $set: categoryData },
+        { $set: cleanedData },
         { new: true }
       ).lean();
       

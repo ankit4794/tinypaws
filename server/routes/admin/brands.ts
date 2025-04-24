@@ -49,30 +49,53 @@ router.post('/', upload.fields([
   { name: 'bannerImage', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    const brandData: any = JSON.parse(req.body.data);
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } || {};
+    let brandData: any;
+    
+    // If data comes as JSON in req.body.data
+    if (req.body.data) {
+      brandData = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
+    } else {
+      // If data comes directly in req.body
+      brandData = req.body;
+    }
     
     // Generate slug from brand name
     if (!brandData.slug && brandData.name) {
       brandData.slug = slugify(brandData.name);
     }
     
-    // Upload images to Google Cloud Storage if provided
-    if (files.logo && files.logo.length > 0) {
-      const logoUrl = await uploadToGCS(files.logo[0], 'brands');
-      brandData.logo = logoUrl;
+    // Default logo URL if not provided
+    if (!brandData.logo) {
+      brandData.logo = "https://storage.googleapis.com/tinypaws-assets/brands/default.png";
     }
     
-    if (files.bannerImage && files.bannerImage.length > 0) {
-      const bannerUrl = await uploadToGCS(files.bannerImage[0], 'brands');
-      brandData.bannerImage = bannerUrl;
+    // Upload images to Google Cloud Storage if provided
+    if (files && files.logo && files.logo.length > 0) {
+      try {
+        const logoUrl = await uploadToGCS(files.logo[0], 'brands');
+        brandData.logo = logoUrl;
+      } catch (uploadError) {
+        console.error('Error uploading logo:', uploadError);
+        // Continue with default or existing logo
+      }
+    }
+    
+    if (files && files.bannerImage && files.bannerImage.length > 0) {
+      try {
+        const bannerUrl = await uploadToGCS(files.bannerImage[0], 'brands');
+        brandData.bannerImage = bannerUrl;
+      } catch (uploadError) {
+        console.error('Error uploading banner:', uploadError);
+        // Continue without banner image
+      }
     }
     
     const newBrand = await storageProvider.instance.createBrand(brandData);
     res.status(201).json(newBrand);
   } catch (error) {
     console.error('Error creating brand:', error);
-    res.status(500).json({ error: 'Failed to create brand' });
+    res.status(500).json({ error: 'Failed to create brand: ' + (error instanceof Error ? error.message : String(error)) });
   }
 });
 
@@ -83,8 +106,16 @@ router.put('/:id', upload.fields([
 ]), async (req, res) => {
   try {
     const { id } = req.params;
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    const brandData: any = JSON.parse(req.body.data);
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } || {};
+    let brandData: any;
+    
+    // If data comes as JSON in req.body.data
+    if (req.body.data) {
+      brandData = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body.data;
+    } else {
+      // If data comes directly in req.body
+      brandData = req.body;
+    }
     
     // Generate slug from brand name if name is being updated and slug isn't provided
     if (brandData.name && !brandData.slug) {
@@ -92,14 +123,24 @@ router.put('/:id', upload.fields([
     }
     
     // Upload images to Google Cloud Storage if provided
-    if (files.logo && files.logo.length > 0) {
-      const logoUrl = await uploadToGCS(files.logo[0], 'brands');
-      brandData.logo = logoUrl;
+    if (files && files.logo && files.logo.length > 0) {
+      try {
+        const logoUrl = await uploadToGCS(files.logo[0], 'brands');
+        brandData.logo = logoUrl;
+      } catch (uploadError) {
+        console.error('Error uploading logo:', uploadError);
+        // Continue with existing logo
+      }
     }
     
-    if (files.bannerImage && files.bannerImage.length > 0) {
-      const bannerUrl = await uploadToGCS(files.bannerImage[0], 'brands');
-      brandData.bannerImage = bannerUrl;
+    if (files && files.bannerImage && files.bannerImage.length > 0) {
+      try {
+        const bannerUrl = await uploadToGCS(files.bannerImage[0], 'brands');
+        brandData.bannerImage = bannerUrl;
+      } catch (uploadError) {
+        console.error('Error uploading banner:', uploadError);
+        // Continue with existing banner
+      }
     }
     
     const updatedBrand = await storageProvider.instance.updateBrand(id, brandData);
@@ -111,7 +152,7 @@ router.put('/:id', upload.fields([
     res.json(updatedBrand);
   } catch (error) {
     console.error('Error updating brand:', error);
-    res.status(500).json({ error: 'Failed to update brand' });
+    res.status(500).json({ error: 'Failed to update brand: ' + (error instanceof Error ? error.message : String(error)) });
   }
 });
 

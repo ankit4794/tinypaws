@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProductCard from "@/components/ui/ProductCard";
 import QuickViewModal from "@/components/ui/QuickViewModal";
-import { useProduct, useProducts } from "@/hooks/use-products";
+import { useProduct, useProductBySlug, useProducts } from "@/hooks/use-products";
 
 const ProductDetailPage = () => {
-  const { id } = useParams();
+  const params = useParams();
+  const { id, slug } = params;
   const { addToCart } = useCart();
   const { toast } = useToast();
   const [selectedColor, setSelectedColor] = useState<string>("red");
@@ -26,8 +27,15 @@ const ProductDetailPage = () => {
   const [showQuickView, setShowQuickView] = useState<boolean>(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // Use our custom hook with caching for the product
-  const { data: product, isLoading, error } = useProduct(id);
+  // Use appropriate hook based on whether we have an ID or slug
+  const productById = useProduct(id || '');
+  const productBySlug = useProductBySlug(slug || '');
+
+  console.log(productBySlug, "productBySlug")
+  
+  // Determine which product data to use
+  const productData = slug ? productBySlug : productById;
+  const { data: product, isLoading, error } = productData;
 
   // Use our custom hook for similar products with caching
   const { data: similarProducts, isLoading: isLoadingSimilar } = useProducts({

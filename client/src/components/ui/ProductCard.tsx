@@ -64,7 +64,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <div className="group">
       <div className="relative mb-3 overflow-hidden rounded-lg">
-        <Link href={`/product/${slug}`}>
+        <Link href={`/product/slug/${slug}`}>
           <img 
             src={images[0]}
             alt={name}

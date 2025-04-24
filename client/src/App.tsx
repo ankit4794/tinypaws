@@ -49,7 +49,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/products/:category" component={ProductsPage} />
       <Route path="/products/:category/:subcategory" component={ProductsPage} />
-      <Route path="/product/:id" component={ProductDetailPage} />
+      <Route path="/product/slug/:slug" component={ProductDetailPage} />
       <Route path="/cart" component={CartPage} />
       <Route path="/about" component={AboutPage} />
       <Route path="/contact" component={ContactPage} />
